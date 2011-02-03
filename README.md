@@ -2,7 +2,7 @@
 
 EasyRedis is a simple ruby framework designed to make using Redis as a database simpler.
 
-Redis is a very fast key-value store that supports lists, (sorted) sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedius. EasyRedis streamlines this process.
+Redis is a very fast key-value store that supports lists, (sorted) sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedious. EasyRedis streamlines this process.
 
 ## Code Samples
 
