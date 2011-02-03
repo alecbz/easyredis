@@ -31,7 +31,7 @@ Posts are automatically given ids that we can then use to retrive them:
     p = Post[id]  # or Post.find(id)
     p.title  # => "My First Post"
 
-We can also tell EasyRedis to optimize sorting and search on certain fields. If we had redefined Post like:
+We can also tell EasyRedis to optimize sorting and searching on certain fields. If we had defined Post as:
 
     class Post < EasyRedis::Model
       field :title
