@@ -7,29 +7,38 @@ def rand_name
   $names[rand*$names.size]
 end
 
-puts "destroying previous records"
+$count = 0
+$num_add = ARGV[0] ? ARGV[0].to_i : 50000 
+
+puts "counting entries"
+Benchmark.bm(7) do |bm|
+  bm.report { $count = Man.count }
+end
+puts
+
+puts "destroying #{$count} previous entries"
 Benchmark.bm(7) do |bm|
   bm.report { Man.destroy_all }
 end
 puts
 
-puts "adding 25,000 men"
+puts "adding #{$num_add} new entries"
 Benchmark.bm(7) do |bm|
-  bm.report { 25000.times { m = Man.new ; m.name = rand_name } }
+  bm.report { $num_add.times { m = Man.new ; m.name = rand_name } }
 end
 puts
 
 puts "sorting by name"
-Benchmark.bm(18) do |bm|
-  bm.report("ruby sort_by:") { Man.all.sort_by { |m| m.name } }
-  bm.report("easyredis sort_by:") { Man.sort_by(:name) }
+Benchmark.bm(7) do |bm|
+  bm.report("ruby:") { Man.all.sort_by { |m| m.name } }
+  bm.report("redis:") { Man.sort_by(:name) }
 end
 puts
 
-puts "finding all entries by name"
-Benchmark.bm(20) do |bm|
+puts "finding all entries by a particular name"
+Benchmark.bm(7) do |bm|
   name = rand_name
-  bm.report("ruby Array.select:") { Man.all.select {|m| m.name == name} }
-  bm.report("easyredis search_by:") { Man.search_by(:name,name) }
+  bm.report("ruby:") { Man.all.select {|m| m.name == name} }
+  bm.report("redis:") { Man.search_by(:name,name) }
 end
 puts

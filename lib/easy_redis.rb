@@ -1,8 +1,20 @@
+# EasyRedis is a simple ruby framework designed to make using Redis as a database simpler.
+#
+# Redis is a very fast key-value store that supports data structures like lists, (sorted) sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedious. EasyRedis streamlines this process.
+#
+# Author:: Alec Benzer (mailto:alecbenzer@gmail.com)
+
+
 require 'redis'
 require 'active_support/inflector'
 
+
+# main EasyRedis module which
+# holds all classes and helper methods
 module EasyRedis
   
+  # generate a 'score' for a string
+  # used for storing it in a sorted set
   def self.string_score(str)
     str = str.downcase
     mult = 1.0
@@ -14,6 +26,9 @@ module EasyRedis
     scr
   end
 
+  # gets a score for a generic object
+  # uses string_score if the object is a string
+  # and just returns the object otherwise (presumably its a number)
   def self.score(obj)
     if obj.is_a? String
       string_score(obj)
@@ -22,16 +37,21 @@ module EasyRedis
     end
   end
 
+  # access the redis object
   def self.redis
     @redis
   end
 
+  # connect to a redis server
   def self.connect(options = {})
     @redis = Redis.new(options)
   end
 
+  # class representing a data model
+  # you want to store in redis
   class Model
 
+    # add a field to the model
     def self.field(name)
       name = name.to_s
       getter = name
@@ -58,11 +78,19 @@ module EasyRedis
       end
     end
 
+    # index a field to be sorted/searched
     def self.sort_on(field)
       @@sorts ||= []
       @@sorts << field.to_sym
     end
 
+    # number of instances of this model
+    def self.count
+      EasyRedis.redis.zcount(prefix.pluralize,"-inf","inf")
+    end
+
+    # get all instances of this model
+    # ordered by creation time
     def self.all(options = {:order => :asc})
       ids = []
       if options[:order] == :asc
@@ -75,6 +103,8 @@ module EasyRedis
       ids.map{|i| new(i) }
     end
 
+    # find an instance of this model
+    # based on its id
     def self.find(id)
       if EasyRedis.redis.zscore(prefix.pluralize,id)
         new(id)
@@ -83,10 +113,12 @@ module EasyRedis
       end
     end
 
+    # alias for find
     def self.[](id)
       find(id)
     end
 
+    # get all instances where the given field matches the given value
     def self.search_by(field_name, val)
       if @@sorts.member? field_name.to_sym
         scr = EasyRedis.score(val)
@@ -97,6 +129,7 @@ module EasyRedis
       end
     end
     
+    # get the first instance where the given field matches the given value
     def self.find_by(field_name,val)
       if @@sorts.member? field_name.to_sym
         scr = EasyRedis.score(val)
@@ -111,6 +144,7 @@ module EasyRedis
       end
     end
 
+    # get all the entries, sorted by the given field
     def self.sort_by(field_name,options = {:order => :asc})
       if @@sorts.member? field_name
         ids = []
@@ -127,6 +161,7 @@ module EasyRedis
       end
     end
 
+    # destroy all instances of this model
     def self.destroy_all
       all.each {|x| x.destroy}
       @@sorts.each {|field| EasyRedis.redis.del(sort_prefix(field)) }
@@ -134,13 +169,6 @@ module EasyRedis
       EasyRedis.redis.del(prefix + ":next_id")
     end
 
-    def self.prefix
-      self.name.downcase
-    end
-
-    def self.sort_prefix(field)
-      prefix.pluralize + ':sort_' + field.to_s
-    end
 
     attr_reader :id
 
@@ -154,14 +182,17 @@ module EasyRedis
       end
     end
 
+    # get the creation time of an entry
     def created_at
       Time.at(EasyRedis.redis.zscore(prefix.pluralize,@id).to_i)
     end
 
+    # directly access a field
     def [](field)
       EasyRedis.redis.hget(key_name,field)
     end
-
+    
+    # directly change a field's value
     def []=(field,val)
       if val
         EasyRedis.redis.hset(key_name,field,val)
@@ -170,6 +201,7 @@ module EasyRedis
       end
     end
 
+    # remove the entry
     def destroy
       EasyRedis.redis.zrem(prefix.pluralize,@id)
       EasyRedis.redis.del(key_name)
@@ -179,7 +211,17 @@ module EasyRedis
       "#<#{self.class.name}:#{@id}>"
     end
 
-    #    private 
+
+    private 
+
+    def self.prefix
+      self.name.downcase
+    end
+
+    def self.sort_prefix(field)
+      prefix.pluralize + ':sort_' + field.to_s
+    end
+
 
     def prefix
       self.class.prefix
