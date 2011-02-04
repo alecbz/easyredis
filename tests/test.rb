@@ -1,4 +1,4 @@
-require './easy_redis'
+require './lib/easy_redis'
 
 class Man < EasyRedis::Model
   field :name
