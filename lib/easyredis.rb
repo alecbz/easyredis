@@ -48,6 +48,28 @@ module EasyRedis
     @redis = Redis.new(options)
   end
 
+  # exception that indicates that the given field has not been indexed for sorting/searching
+  class FieldNotSortable < RuntimeError
+    def initialize(field)
+      @message = "field '#{field.to_s}' not sortable"
+    end
+    
+    def to_s
+      @message
+    end
+  end
+
+  # exception that indicated an unknown ordering option was encountered
+  class UnknownOrderOption < RuntimeError
+    def initialize(opt)
+      @message = "unknown order option '#{opt}'"
+    end
+
+    def to_s
+      @message
+    end
+  end
+
   # class representing a data model
   # you want to store in redis
   class Model
@@ -99,7 +121,7 @@ module EasyRedis
       elsif options[:order] == :desc
         ids = EasyRedis.redis.zrevrange(prefix.pluralize,0,-1)
       else
-        raise "order option not recognized"
+        raise EasyRedis::UnknownOrderOption, options[:order]
       end
       ids.map{|i| new(i) }
     end
@@ -120,29 +142,16 @@ module EasyRedis
 
     # get all instances where the given field matches the given value
     def self.search_by(field_name, val, options = {})
-      if @@sorts.member? field_name.to_sym
-        scr = EasyRedis.score(val)
-        options[:limit] = [0,options[:limit]] if options[:limit]
-        ids = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr,options)
-        ids.map{|i| new(i) }
-      else
-        raise "field #{field_name.to_s} not searchable"
-      end
+      raise EasyRedis::FieldNotSortable, field_name unless @@sorts.member? field_name.to_sym
+      scr = EasyRedis.score(val)
+      options[:limit] = [0,options[:limit]] if options[:limit]
+      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr,options)
+      ids.map{|i| new(i) }
     end
     
     # get the first instance where the given field matches the given value
     def self.find_by(field_name,val)
-      if @@sorts.member? field_name.to_sym
-        scr = EasyRedis.score(val)
-        i = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr,:limit => [0,1]).first
-        if i
-          new(i)
-        else
-          nil
-        end
-      else
-        raise "field #{field_name.to_s} not searchable"
-      end
+      search_by(field_name,val,:limit => 1).first
     end
 
     # get all the entries, sorted by the given field
@@ -154,11 +163,11 @@ module EasyRedis
         elsif options[:order] == :desc
           ids = EasyRedis.redis.zrevrange(sort_prefix(field_name),0,-1)
         else
-          raise "order option not recognized"
+          raise EasyRedis::UnknownOrderOption, options[:order]
         end
         ids.map{|i|new(i)}
       else
-        raise "field #{field_name.to_s} not sortable"
+        raise EasyRedis::FieldNotSortable, field_name
       end
     end
 

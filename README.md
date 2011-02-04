@@ -4,11 +4,26 @@ EasyRedis is a simple ruby framework designed to make using Redis as a database 
 
 Redis is a very fast key-value store that supports data structures like lists, (sorted) sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedious. EasyRedis streamlines this process.
 
+## Installation
+
+You can get the source with git:
+
+    $ git clone git://github.com/alecbenzer/easyredis.git
+
+or just download and extract a tar archive with the Downloads button.
+
+Once you have the source, run:
+
+    $ rake
+    $ gem install pkg/easyredis-x.x.x.gem
+
+Where x.x.x is the current version number.
+
 ## Basics
 
 First, create a simple model:
 
-    require 'easy_redis'
+    require 'easyredis'
 
     class Post < EasyRedis::Model
       field :title

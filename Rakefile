@@ -9,13 +9,14 @@ spec = Gem::Specification.new do |s|
   s.version = "0.0.1"
   s.author = "Alec Benzer"
   s.email = "alecbenzer@gmail.com"
+  s.homepage = "https://github.com/alecbenzer/easyredis"
   s.summary = "simple framework designed to make using redis as a database simpler"
   s.files = FileList['lib/*.rb','test/*'].to_a
   s.require_path = "lib"
   s.test_files = Dir.glob('tests/*.rb')
-  s.has_rdoc = false
+  s.has_rdoc = true
   s.add_dependency("redis")
-  s.add_dependency("active_support/inflector")
+  s.add_dependency("activesupport")
 end
 
 Rake::GemPackageTask.new(spec) do |pkg|
@@ -55,7 +56,7 @@ namespace :bm do
   task :sort do
     puts "sorting by name"
     Benchmark.bm(7) do |bm|
-      bm.report("ruby:") { Man.all.sort_by { |m| m.name } }
+      #bm.report("ruby:") { Man.all.sort_by { |m| m.name } }
       bm.report("redis:") { Man.sort_by(:name) }
     end
   end
@@ -64,7 +65,7 @@ namespace :bm do
     puts "finding all entries by a particular name"
     Benchmark.bm(7) do |bm|
       name = rand_name
-      bm.report("ruby:") { Man.all.select {|m| m.name == name} }
+      #bm.report("ruby:") { Man.all.select {|m| m.name == name} }
       bm.report("redis:") { Man.search_by(:name,name) }
     end
   end
