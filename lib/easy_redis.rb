@@ -27,6 +27,7 @@ module EasyRedis
   end
 
   # gets a score for a generic object
+  #
   # uses string_score if the object is a string
   # and just returns the object otherwise (presumably its a number)
   def self.score(obj)
@@ -84,7 +85,7 @@ module EasyRedis
       @@sorts << field.to_sym
     end
 
-    # number of instances of this model
+    # returns number of instances of this model
     def self.count
       EasyRedis.redis.zcount(prefix.pluralize,"-inf","inf")
     end
@@ -103,8 +104,7 @@ module EasyRedis
       ids.map{|i| new(i) }
     end
 
-    # find an instance of this model
-    # based on its id
+    # find an instance of this model based on its id
     def self.find(id)
       if EasyRedis.redis.zscore(prefix.pluralize,id)
         new(id)
@@ -119,10 +119,11 @@ module EasyRedis
     end
 
     # get all instances where the given field matches the given value
-    def self.search_by(field_name, val)
+    def self.search_by(field_name, val, options = {})
       if @@sorts.member? field_name.to_sym
         scr = EasyRedis.score(val)
-        ids = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr)
+        options[:limit] = [0,options[:limit]] if options[:limit]
+        ids = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr,options)
         ids.map{|i| new(i) }
       else
         raise "field #{field_name.to_s} not searchable"
