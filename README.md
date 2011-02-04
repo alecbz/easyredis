@@ -2,7 +2,7 @@
 
 EasyRedis is a simple ruby framework designed to make using Redis as a database simpler.
 
-Redis is a very fast key-value store that supports lists, (sorted) sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedious. EasyRedis streamlines this process.
+Redis is a very fast key-value store that supports data structures like lists, (sorted) sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedious. EasyRedis streamlines this process.
 
 ## Basics
 
@@ -55,4 +55,4 @@ We can now sort our posts by title:
 And also search:
 
     Post.search_by(:title,"A common title")  # all posts with this title
-    Post.find_by(:title,"A common title")  # just one post
+    Post.find_by(:title,"My First Post")  # just one post
