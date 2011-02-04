@@ -4,7 +4,7 @@ EasyRedis is a simple ruby framework designed to make using Redis as a database 
 
 Redis is a very fast key-value store that supports lists, (sorted) sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedious. EasyRedis streamlines this process.
 
-## Code Samples
+## Basics
 
 First, create a simple model:
 
@@ -31,6 +31,14 @@ Posts are automatically given ids that we can then use to retrive them:
     p = Post[id]  # or Post.find(id)
     p.title  # => "My First Post"
 
+We also get a created_at field for free that we can sort by.
+
+    p.created_at  # a ruby Time object
+    Post.all  # get all posts, ordered by creation time
+    Post.all :order => :desc  # specifying an order option
+    
+## Searching and Sorting
+
 We can also tell EasyRedis to optimize sorting and searching on certain fields. If we had defined Post as:
 
     class Post < EasyRedis::Model
@@ -40,6 +48,11 @@ We can also tell EasyRedis to optimize sorting and searching on certain fields. 
       sort_on :title
     end
 
-We can now retrive posts with things like:
+We can now sort our posts by title:
 
     Post.sort_by :title, :order => :desc
+
+And also search:
+
+    Post.search_by(:title,"A common title")  # all posts with this title
+    Post.find_by(:title,"A common title")  # just one post
