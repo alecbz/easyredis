@@ -29,7 +29,7 @@ module EasyRedis
 
   # gets a score for a generic object
   #
-  # uses string_score if the object is a string
+  # Uses EasyRedis#string_score if the object is a string,
   # and just returns the object otherwise (presumably its a number)
   def self.score(obj)
     if obj.is_a? String
@@ -75,6 +75,7 @@ module EasyRedis
   class Sort
     include Enumerable
 
+    # initialize the sort with a specific field, ordering option, and model
     def initialize(field,order,klass)
       raise EasyRedis::FieldNotSortable, field  unless klass.sortable?(field) 
       raise EasyRedis::UnknownOrderOption, order  unless [:asc,:desc].member? order
@@ -83,6 +84,10 @@ module EasyRedis
       @klass = klass
     end
 
+    # access elements in this sort
+    #
+    # Work's like ruby's Array#[]. It can take a specific index, a range, or an offset, amount pair.
+    # Calling this method will actually query the redis server for ids
     def [](index,limit=nil)
       if limit
         offset = index
@@ -103,14 +108,20 @@ module EasyRedis
       end
     end
 
+    # iterate through all members of this sort
     def each
       self[0..-1].each { |o| yield o }
     end
 
+    # return the number of elements in this sort
+    #
+    # As of now, idential to the Model's #count method.
+    # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them
     def count
       EasyRedis.zcard(@klass.sort_prefix(@field))
     end
 
+    # return the fist element of this sort, or the first n elements, if n is given
     def first(n = nil)
       if n
         self[0,n]
@@ -183,31 +194,33 @@ module EasyRedis
       end
     end
 
-    # alias for find
+    # alias for Model#find
     def self.[](id)
       find(id)
     end
 
-    # get all instances where the given field matches the given value
-    def self.search_by(field_name, val, options = {})
-      raise EasyRedis::FieldNotSortable, field_name unless @@sorts.member? field_name.to_sym
+    # get all entries where field matches val
+    def self.search_by(field, val, options = {})
+      raise EasyRedis::FieldNotSortable, field unless @@sorts.member? field.to_sym
       scr = EasyRedis.score(val)
       # options[:limit] = [0,options[:limit]] if options[:limit]
-      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr,proc_options(options))
+      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field),scr,scr,proc_options(options))
       ids.map{|i| new(i) }
     end
     
-    # get the first instance where the given field matches val
-    def self.find_by(field_name,val)
-      search_by(field_name,val,:limit => 1).first
+    # get the first entry where field matches val
+    def self.find_by(field,val)
+      search_by(field,val,:limit => 1).first
     end
 
-    # get all the entries, sorted by the given field
+    # get all entries, sorted by the given field
     def self.sort_by(field,options = {:order => :asc})
       EasyRedis::Sort.new(field,options[:order],self)
     end
 
     # gives all values for the given field that begins with str
+    #
+    # This method is currently iterates through all existing entries. It is therefore very slow and should probably not be used at this time.
     def self.matches(field,str)
       scr = EasyRedis.score(str)
       a,b = scr, scr+1/(27.0**str.size)
@@ -217,9 +230,9 @@ module EasyRedis
       s.to_a
     end
 
-    # searches for all entries where the given field begins with the given string
+    # searches for all entries where field begins with str
     #
-    # should only be called on string fields
+    # works with string fields that have been indexed with sort_on
     def self.match(field,str, options = {})
       raise EasyRedis::FieldNotSortable, filename unless @@sorts.member? field
       scr = EasyRedis.score(str)
@@ -228,6 +241,7 @@ module EasyRedis
       ids.map{|i| new(i)}
     end
 
+    # indicates whether field has been indexed with sort_on
     def self.sortable?(field)
       @@sorts.member? field or field.to_sym == :created_at
     end
@@ -244,6 +258,11 @@ module EasyRedis
     # the id of this entry
     attr_reader :id
 
+    # create a new instance of this model
+    #
+    # If no id is passed, one is generated for you.
+    # Otherwise, sets the id field to the passed id, but does not check to see if it is a valid id for this model.
+    # Users should use Model#find or Model#[] when retiving models by id, as these check for valid ids.
     def initialize(id=nil)
       if id
         @id = id
@@ -259,12 +278,16 @@ module EasyRedis
       Time.at(EasyRedis.redis.zscore(prefix.pluralize,@id).to_i)
     end
 
-    # directly access a field
+    # directly access a field of this entry's redis hash
+    #
+    # note that you cannot access created_at or id with these methods
     def [](field)
       EasyRedis.redis.hget(key_name,field)
     end
     
-    # directly change a field's value
+    # directly change a field of this entry's redis hash
+    #
+    # note that you cannot access created_at or id with these methods
     def []=(field,val)
       if val
         EasyRedis.redis.hset(key_name,field,val)
@@ -277,6 +300,11 @@ module EasyRedis
     def destroy
       EasyRedis.redis.zrem(prefix.pluralize,@id)
       EasyRedis.redis.del(key_name)
+    end
+
+    # returns the key name of this entry's redis hash  
+    def key_name
+      prefix + ':' + @id.to_s
     end
 
     def inspect
@@ -315,10 +343,6 @@ module EasyRedis
 
     def sort_prefix(field)
       self.class.sort_prefix(field)
-    end
-
-    def key_name
-      prefix + ':' + @id.to_s
     end
   end
 end

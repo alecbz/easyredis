@@ -79,6 +79,8 @@
           
           <li><a href="#method-i-first">#first</a></li>
           
+          <li><a href="#method-i-inspect">#inspect</a></li>
+          
         </ul>
       </div>
       
@@ -169,15 +171,17 @@
 
         <div class="method-description">
           
-          
+          <p>initialize the sort with a specific field, ordering option, and model</p>
           
 
           
           <div class="method-source-code"
             id="new-source">
 <pre>
-<span class="ruby-comment"># File lib/easyredis.rb, line 78</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 79</span>
 def initialize(field,order,klass)
+  raise <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">FieldNotSortable</span>, field  unless klass.sortable?(field) 
+  raise <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">UnknownOrderOption</span>, order  unless [:asc,:desc].member? order
   <span class="ruby-ivar">@field</span> = field
   <span class="ruby-ivar">@order</span> = order
   <span class="ruby-ivar">@klass</span> = klass
@@ -211,14 +215,18 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>access elements in this sort</p>
+
+<p>Work’s like ruby’s Array#[]. It can take a specific index, a range, or an
+offset, amount pair. Calling this method will actually query the redis
+server for ids</p>
           
 
           
           <div class="method-source-code"
             id="5B-5D-source">
 <pre>
-<span class="ruby-comment"># File lib/easyredis.rb, line 84</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 91</span>
 def [](index,limit=nil)
   if limit
     offset = index
@@ -261,14 +269,19 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>return the number of elements in this sort</p>
+
+<p>As of now, idential to the Model’s <a
+href="Sort.html#method-i-count">count</a> method. This method is
+explicility defined here to overwrite the default one in Enumerable, which
+iterates through all the entries to count them</p>
           
 
           
           <div class="method-source-code"
             id="count-source">
 <pre>
-<span class="ruby-comment"># File lib/easyredis.rb, line 108</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 120</span>
 def count
   <span class="ruby-constant">EasyRedis</span>.zcard(<span class="ruby-ivar">@klass</span>.sort_prefix(<span class="ruby-ivar">@field</span>))
 end</pre>
@@ -295,14 +308,14 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>iterate through all members of this sort</p>
           
 
           
           <div class="method-source-code"
             id="each-source">
 <pre>
-<span class="ruby-comment"># File lib/easyredis.rb, line 104</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 112</span>
 def each
   self[0..-1].each { |o| yield o }
 end</pre>
@@ -329,20 +342,55 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>return the fist element of this sort, or the first n elements, if n is
+given</p>
           
 
           
           <div class="method-source-code"
             id="first-source">
 <pre>
-<span class="ruby-comment"># File lib/easyredis.rb, line 112</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 125</span>
 def first(n = nil)
   if n
     self[0,n]
   else
     self[0]
   end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="inspect-method" class="method-detail ">
+        <a name="method-i-inspect"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">inspect</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="inspect-source">
+<pre>
+<span class="ruby-comment"># File lib/easyredis.rb, line 133</span>
+def inspect
+  &quot;#&lt;EasyRedis::Sort model=#{@klass.name}, field=#{@field.to_s}, order=#{@order.to_s}&gt;&quot;
 end</pre>
           </div>
           

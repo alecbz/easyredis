@@ -82,3 +82,7 @@ namespace :bm do
   end
 
 end
+
+task :doc do
+  puts `rdoc lib/ --title "EasyRedis"`
+end
