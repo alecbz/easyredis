@@ -116,6 +116,11 @@ module EasyRedis
         self[0]
       end
     end
+
+    def inspect
+      "#<EasyRedis::Sort model=#{@klass.name}, field=#{@field.to_s}, order=#{@order.to_s}>"
+    end
+
   end
 
 
