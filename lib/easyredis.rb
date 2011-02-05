@@ -76,8 +76,8 @@ module EasyRedis
     include Enumerable
 
     def initialize(field,order,klass)
-      raise EasyRedis::FieldNotSortable, field  unless @klass.sortable?(field) 
-      raise EasyRedis::UnknownOrderOption, options[:order]  unless [:asc,:desc].member? options[:order]
+      raise EasyRedis::FieldNotSortable, field  unless klass.sortable?(field) 
+      raise EasyRedis::UnknownOrderOption, order  unless [:asc,:desc].member? order
       @field = field
       @order = order
       @klass = klass
@@ -238,7 +238,7 @@ module EasyRedis
     end
 
     def self.sortable?(field)
-      @@sorts.member? field
+      @@sorts.member? field or field.to_sym == :created_at
     end
 
     # destroy all instances of this model
