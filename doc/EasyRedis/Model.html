@@ -38,8 +38,8 @@
         <div class="section-body">
           <ul>
           
-            <li><a href="../lib/easy_redis_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/easy_redis.rb">lib/easy_redis.rb</a></li>
+            <li><a href="../lib/easyredis_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/easyredis.rb">lib/easyredis.rb</a></li>
           
           </ul>
         </div>
@@ -82,6 +82,10 @@
           <li><a href="#method-c-find">::find</a></li>
           
           <li><a href="#method-c-find_by">::find_by</a></li>
+          
+          <li><a href="#method-c-match">::match</a></li>
+          
+          <li><a href="#method-c-matches">::matches</a></li>
           
           <li><a href="#method-c-new">::new</a></li>
           
@@ -130,7 +134,13 @@
         
           <li><a href="../EasyRedis.html">EasyRedis</a></li>
         
+          <li><a href="../EasyRedis/FieldNotSortable.html">EasyRedis::FieldNotSortable</a></li>
+        
           <li><a href="../EasyRedis/Model.html">EasyRedis::Model</a></li>
+        
+          <li><a href="../EasyRedis/Sort.html">EasyRedis::Sort</a></li>
+        
+          <li><a href="../EasyRedis/UnknownOrderOption.html">EasyRedis::UnknownOrderOption</a></li>
         
         </ul>
         <div id="no-class-search-results" style="display: none;">No matching classes.</div>
@@ -168,7 +178,7 @@
 
         <div class="method-description">
         
-        
+        <p>the id of this entry</p>
         
         </div>
       </div>
@@ -202,7 +212,7 @@
           <div class="method-source-code"
             id="5B-5D-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 117</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 188</span>
 def self.[](id)
   find(id)
 end</pre>
@@ -236,7 +246,7 @@ end</pre>
           <div class="method-source-code"
             id="all-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 95</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 166</span>
 def self.all(options = {:order =&gt; :asc})
   ids = []
   if options[:order] == :asc
@@ -244,7 +254,7 @@ def self.all(options = {:order =&gt; :asc})
   elsif options[:order] == :desc
     ids = <span class="ruby-constant">EasyRedis</span>.redis.zrevrange(prefix.pluralize,0,-1)
   else
-    raise <span class="ruby-string">&quot;order option not recognized&quot;</span>
+    raise <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">UnknownOrderOption</span>, options[:order]
   end
   ids.map{|i| new(i) }
 end</pre>
@@ -278,9 +288,9 @@ end</pre>
           <div class="method-source-code"
             id="count-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 89</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 160</span>
 def self.count
-  <span class="ruby-constant">EasyRedis</span>.redis.zcount(prefix.pluralize,<span class="ruby-string">&quot;-inf&quot;</span>,<span class="ruby-string">&quot;inf&quot;</span>)
+  <span class="ruby-constant">EasyRedis</span>.redis.zcard(prefix.pluralize)
 end</pre>
           </div>
           
@@ -312,7 +322,7 @@ end</pre>
           <div class="method-source-code"
             id="destroy_all-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 165</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 244</span>
 def self.destroy_all
   all.each {|x| x.destroy}
   @@sorts.each {|field| <span class="ruby-constant">EasyRedis</span>.redis.del(sort_prefix(field)) }
@@ -349,7 +359,7 @@ end</pre>
           <div class="method-source-code"
             id="field-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 56</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 127</span>
 def self.field(name)
   name = name.to_s
   getter = name
@@ -405,7 +415,7 @@ end</pre>
           <div class="method-source-code"
             id="find-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 108</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 179</span>
 def self.find(id)
   if <span class="ruby-constant">EasyRedis</span>.redis.zscore(prefix.pluralize,id)
     new(id)
@@ -436,26 +446,95 @@ end</pre>
 
         <div class="method-description">
           
-          <p>get the first instance where the given field matches the given value</p>
+          <p>get the first instance where the given field matches val</p>
           
 
           
           <div class="method-source-code"
             id="find_by-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 133</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 202</span>
 def self.find_by(field_name,val)
-  if @@sorts.member? field_name.to_sym
-    scr = <span class="ruby-constant">EasyRedis</span>.score(val)
-    i = <span class="ruby-constant">EasyRedis</span>.redis.zrangebyscore(sort_prefix(field_name),scr,scr,:limit =&gt; [0,1]).first
-    if i
-      new(i)
-    else
-      nil
-    end
-  else
-    raise &quot;field #{field_name.to_s} not searchable&quot;
-  end
+  search_by(field_name,val,:limit =&gt; 1).first
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="match-method" class="method-detail ">
+        <a name="method-c-match"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">match</span><span
+            class="method-args">(field,str, options = {})</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>searches for all entries where the given field begins with the given string</p>
+
+<p>should only be called on string fields</p>
+          
+
+          
+          <div class="method-source-code"
+            id="match-source">
+<pre>
+<span class="ruby-comment"># File lib/easyredis.rb, line 235</span>
+def self.match(field,str, options = {})
+  raise <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">FieldNotSortable</span>, filename unless @@sorts.member? field
+  scr = <span class="ruby-constant">EasyRedis</span>.score(str)
+  a,b = scr, scr+1/(27.0**str.size)
+  ids = <span class="ruby-constant">EasyRedis</span>.redis.zrangebyscore(sort_prefix(field), &quot;#{a}&quot;, &quot;(#{b}&quot;, proc_options(options))
+  ids.map{|i| new(i)}
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="matches-method" class="method-detail ">
+        <a name="method-c-matches"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">matches</span><span
+            class="method-args">(field,str)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>gives all values for the given field that begins with str</p>
+          
+
+          
+          <div class="method-source-code"
+            id="matches-source">
+<pre>
+<span class="ruby-comment"># File lib/easyredis.rb, line 223</span>
+def self.matches(field,str)
+  scr = <span class="ruby-constant">EasyRedis</span>.score(str)
+  a,b = scr, scr+1/(27.0**str.size)
+  ids = <span class="ruby-constant">EasyRedis</span>.redis.zrangebyscore(sort_prefix(field), &quot;#{a}&quot;, &quot;(#{b}&quot;)
+  s = <span class="ruby-constant">Set</span>.new  
+  ids.each{|i| s &lt;&lt; new(i).send(field.to_s) }
+  s.to_a
 end</pre>
           </div>
           
@@ -487,7 +566,7 @@ end</pre>
           <div class="method-source-code"
             id="new-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 175</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 255</span>
 def initialize(id=nil)
   if id
     <span class="ruby-ivar">@id</span> = id
@@ -513,7 +592,7 @@ end</pre>
         
         <div class="method-heading">
           <span class="method-name">search_by</span><span
-            class="method-args">(field_name, val)</span>
+            class="method-args">(field_name, val, options = {})</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -527,15 +606,13 @@ end</pre>
           <div class="method-source-code"
             id="search_by-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 122</span>
-def self.search_by(field_name, val)
-  if @@sorts.member? field_name.to_sym
-    scr = <span class="ruby-constant">EasyRedis</span>.score(val)
-    ids = <span class="ruby-constant">EasyRedis</span>.redis.zrangebyscore(sort_prefix(field_name),scr,scr)
-    ids.map{|i| new(i) }
-  else
-    raise &quot;field #{field_name.to_s} not searchable&quot;
-  end
+<span class="ruby-comment"># File lib/easyredis.rb, line 193</span>
+def self.search_by(field_name, val, options = {})
+  raise <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">FieldNotSortable</span>, field_name unless @@sorts.member? field_name.to_sym
+  scr = <span class="ruby-constant">EasyRedis</span>.score(val)
+  <span class="ruby-comment"># options[:limit] = [0,options[:limit]] if options[:limit]</span>
+  ids = <span class="ruby-constant">EasyRedis</span>.redis.zrangebyscore(sort_prefix(field_name),scr,scr,proc_options(options))
+  ids.map{|i| new(i) }
 end</pre>
           </div>
           
@@ -553,7 +630,7 @@ end</pre>
         
         <div class="method-heading">
           <span class="method-name">sort_by</span><span
-            class="method-args">(field_name,options = {:order => :asc})</span>
+            class="method-args">(field,options = {:order => :asc})</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -567,21 +644,20 @@ end</pre>
           <div class="method-source-code"
             id="sort_by-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 148</span>
-def self.sort_by(field_name,options = {:order =&gt; :asc})
-  if @@sorts.member? field_name
-    ids = []
-    if options[:order] == :asc
-      ids = <span class="ruby-constant">EasyRedis</span>.redis.zrange(sort_prefix(field_name),0,-1)
-    elsif options[:order] == :desc
-      ids = <span class="ruby-constant">EasyRedis</span>.redis.zrevrange(sort_prefix(field_name),0,-1)
-    else
-      raise <span class="ruby-string">&quot;order option not recognized&quot;</span>
-    end
-    ids.map{|i|new(i)}
-  else
-    raise &quot;field #{field_name.to_s} not sortable&quot;
-  end
+<span class="ruby-comment"># File lib/easyredis.rb, line 207</span>
+def self.sort_by(field,options = {:order =&gt; :asc})
+  raise <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">FieldNotSortable</span>, field unless @@sorts.member? field or field == :created_at
+  raise <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">UnknownOrderOption</span>, options[:order] unless [:asc,:desc].member? options[:order]
+  <span class="ruby-constant">EasyRedis</span>::<span class="ruby-constant">Sort</span>.new(field,options[:order],self)
+  <span class="ruby-comment">#ids = []</span>
+  <span class="ruby-comment">#if options[:order] == :asc</span>
+  <span class="ruby-comment">#  ids = EasyRedis.redis.zrange(sort_prefix(field_name),0,-1)</span>
+  <span class="ruby-comment">#elsif options[:order] == :desc</span>
+  <span class="ruby-comment">#  ids = EasyRedis.redis.zrevrange(sort_prefix(field_name),0,-1)</span>
+  <span class="ruby-comment">#else</span>
+  <span class="ruby-comment">#  raise EasyRedis::UnknownOrderOption, options[:order]</span>
+  <span class="ruby-comment">#end</span>
+  <span class="ruby-comment">#ids.map{|i|new(i)}</span>
 end</pre>
           </div>
           
@@ -613,7 +689,7 @@ end</pre>
           <div class="method-source-code"
             id="sort_on-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 83</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 154</span>
 def self.sort_on(field)
   @@sorts ||= []
   @@sorts &lt;&lt; field.to_sym
@@ -654,7 +730,7 @@ end</pre>
           <div class="method-source-code"
             id="5B-5D-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 191</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 271</span>
 def [](field)
   <span class="ruby-constant">EasyRedis</span>.redis.hget(key_name,field)
 end</pre>
@@ -688,7 +764,7 @@ end</pre>
           <div class="method-source-code"
             id="5B-5D-3D-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 196</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 276</span>
 def []=(field,val)
   if val
     <span class="ruby-constant">EasyRedis</span>.redis.hset(key_name,field,val)
@@ -726,7 +802,7 @@ end</pre>
           <div class="method-source-code"
             id="created_at-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 186</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 266</span>
 def created_at
   <span class="ruby-constant">Time</span>.at(<span class="ruby-constant">EasyRedis</span>.redis.zscore(prefix.pluralize,<span class="ruby-ivar">@id</span>).to_i)
 end</pre>
@@ -760,7 +836,7 @@ end</pre>
           <div class="method-source-code"
             id="destroy-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 205</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 285</span>
 def destroy
   <span class="ruby-constant">EasyRedis</span>.redis.zrem(prefix.pluralize,<span class="ruby-ivar">@id</span>)
   <span class="ruby-constant">EasyRedis</span>.redis.del(key_name)
@@ -795,7 +871,7 @@ end</pre>
           <div class="method-source-code"
             id="inspect-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 210</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 290</span>
 def inspect
   &quot;#&lt;#{self.class.name}:#{@id}&gt;&quot;
 end</pre>

@@ -38,8 +38,8 @@
         <div class="section-body">
           <ul>
           
-            <li><a href="./lib/easy_redis_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/easy_redis.rb">lib/easy_redis.rb</a></li>
+            <li><a href="./lib/easyredis_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/easyredis.rb">lib/easyredis.rb</a></li>
           
           </ul>
         </div>
@@ -59,7 +59,13 @@
         <h3 class="section-header">Namespace</h3>
         <ul class="link-list">
           
+          <li><span class="type">CLASS</span> <a href="EasyRedis/FieldNotSortable.html">EasyRedis::FieldNotSortable</a></li>
+          
           <li><span class="type">CLASS</span> <a href="EasyRedis/Model.html">EasyRedis::Model</a></li>
+          
+          <li><span class="type">CLASS</span> <a href="EasyRedis/Sort.html">EasyRedis::Sort</a></li>
+          
+          <li><span class="type">CLASS</span> <a href="EasyRedis/UnknownOrderOption.html">EasyRedis::UnknownOrderOption</a></li>
           
         </ul>
       </div>
@@ -108,7 +114,13 @@
         
           <li><a href="./EasyRedis.html">EasyRedis</a></li>
         
+          <li><a href="./EasyRedis/FieldNotSortable.html">EasyRedis::FieldNotSortable</a></li>
+        
           <li><a href="./EasyRedis/Model.html">EasyRedis::Model</a></li>
+        
+          <li><a href="./EasyRedis/Sort.html">EasyRedis::Sort</a></li>
+        
+          <li><a href="./EasyRedis/UnknownOrderOption.html">EasyRedis::UnknownOrderOption</a></li>
         
         </ul>
         <div id="no-class-search-results" style="display: none;">No matching classes.</div>
@@ -160,7 +172,7 @@ and helper methods</p>
           <div class="method-source-code"
             id="connect-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 47</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 48</span>
 def self.connect(options = {})
   <span class="ruby-ivar">@redis</span> = <span class="ruby-constant">Redis</span>.new(options)
 end</pre>
@@ -194,7 +206,7 @@ end</pre>
           <div class="method-source-code"
             id="redis-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 42</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 43</span>
 def self.redis
   <span class="ruby-ivar">@redis</span>
 end</pre>
@@ -232,7 +244,7 @@ number)</p>
           <div class="method-source-code"
             id="score-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 33</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 34</span>
 def self.score(obj)
   if obj.is_a? <span class="ruby-constant">String</span>
     string_score(obj)
@@ -270,7 +282,7 @@ end</pre>
           <div class="method-source-code"
             id="string_score-source">
 <pre>
-<span class="ruby-comment"># File lib/easy_redis.rb, line 18</span>
+<span class="ruby-comment"># File lib/easyredis.rb, line 19</span>
 def self.string_score(str)
   str = str.downcase
   mult = 1.0

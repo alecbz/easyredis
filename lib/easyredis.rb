@@ -208,15 +208,6 @@ module EasyRedis
       raise EasyRedis::FieldNotSortable, field unless @@sorts.member? field or field == :created_at
       raise EasyRedis::UnknownOrderOption, options[:order] unless [:asc,:desc].member? options[:order]
       EasyRedis::Sort.new(field,options[:order],self)
-      #ids = []
-      #if options[:order] == :asc
-      #  ids = EasyRedis.redis.zrange(sort_prefix(field_name),0,-1)
-      #elsif options[:order] == :desc
-      #  ids = EasyRedis.redis.zrevrange(sort_prefix(field_name),0,-1)
-      #else
-      #  raise EasyRedis::UnknownOrderOption, options[:order]
-      #end
-      #ids.map{|i|new(i)}
     end
 
     # gives all values for the given field that begins with str
@@ -249,6 +240,7 @@ module EasyRedis
     end
 
 
+    # the id of this entry
     attr_reader :id
 
     def initialize(id=nil)
