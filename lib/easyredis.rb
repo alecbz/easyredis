@@ -76,6 +76,8 @@ module EasyRedis
     include Enumerable
 
     def initialize(field,order,klass)
+      raise EasyRedis::FieldNotSortable, field  unless @klass.sortable?(field) 
+      raise EasyRedis::UnknownOrderOption, options[:order]  unless [:asc,:desc].member? options[:order]
       @field = field
       @order = order
       @klass = klass
@@ -169,15 +171,16 @@ module EasyRedis
     # get all instances of this model
     # ordered by creation time
     def self.all(options = {:order => :asc})
-      ids = []
-      if options[:order] == :asc
-        ids = EasyRedis.redis.zrange(prefix.pluralize,0,-1)
-      elsif options[:order] == :desc
-        ids = EasyRedis.redis.zrevrange(prefix.pluralize,0,-1)
-      else
-        raise EasyRedis::UnknownOrderOption, options[:order]
-      end
-      ids.map{|i| new(i) }
+      #ids = []
+      #if options[:order] == :asc
+      #  ids = EasyRedis.redis.zrange(prefix.pluralize,0,-1)
+      #elsif options[:order] == :desc
+      #  ids = EasyRedis.redis.zrevrange(prefix.pluralize,0,-1)
+      #else
+      #  raise EasyRedis::UnknownOrderOption, options[:order]
+      #end
+      #ids.map{|i| new(i) }
+      EasyRedis::Sort.new(:created_at
     end
 
     # find an instance of this model based on its id
@@ -210,8 +213,6 @@ module EasyRedis
 
     # get all the entries, sorted by the given field
     def self.sort_by(field,options = {:order => :asc})
-      raise EasyRedis::FieldNotSortable, field unless @@sorts.member? field or field == :created_at
-      raise EasyRedis::UnknownOrderOption, options[:order] unless [:asc,:desc].member? options[:order]
       EasyRedis::Sort.new(field,options[:order],self)
     end
 
@@ -234,6 +235,10 @@ module EasyRedis
       a,b = scr, scr+1/(27.0**str.size)
       ids = EasyRedis.redis.zrangebyscore(sort_prefix(field), "#{a}", "(#{b}", proc_options(options))
       ids.map{|i| new(i)}
+    end
+
+    def self.sortable?(field)
+      @@sorts.member? field
     end
 
     # destroy all instances of this model
