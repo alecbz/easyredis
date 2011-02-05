@@ -153,12 +153,12 @@ module EasyRedis
         if prev
           prev
         else
-          instance_variable_set(instance_var,EasyRedis.redis.hget(key_name,name))
+          instance_variable_set(instance_var,Marshal.load(EasyRedis.redis.hget(key_name,name)))
         end
       end
 
       define_method setter.to_sym do |val|
-        EasyRedis.redis.hset(key_name,name,val)
+        EasyRedis.redis.hset(key_name,name,Marshal.dump(val))
         instance_variable_set(instance_var,val)
 
         if @@sorts.member? name.to_sym
