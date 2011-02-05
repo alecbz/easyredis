@@ -1,31 +1,19 @@
 require 'rubygems'
+require 'rake'
+require 'echoe'
+
+Echoe.new('easyredis','0.0.2') do |p|
+  p.description = "simple framework designed to make using redis as a database simpler"
+  p.url = "https://github.com/alecbenzer/easyredis"
+  p.author = "Alec Benzer"
+  p.email = "alecbezer @nospam@ gmail.com"
+  p.ignore_pattern = ["*.rdb"]
+  p.development_dependencies = ["redis >=2.1.1","activesupport >=3.0.0"]
+end
+
+
 require 'benchmark'
-require 'rake/gempackagetask'
 require './tests/test'
-
-spec = Gem::Specification.new do |s|
-  s.platform = Gem::Platform::RUBY
-  s.name = "easyredis"
-  s.version = "0.0.1"
-  s.author = "Alec Benzer"
-  s.email = "alecbenzer@gmail.com"
-  s.homepage = "https://github.com/alecbenzer/easyredis"
-  s.summary = "simple framework designed to make using redis as a database simpler"
-  s.files = FileList['lib/*.rb','test/*'].to_a
-  s.require_path = "lib"
-  s.test_files = Dir.glob('tests/*.rb')
-  s.has_rdoc = true
-  s.add_dependency("redis")
-  s.add_dependency("activesupport")
-end
-
-Rake::GemPackageTask.new(spec) do |pkg|
-  pkg.need_tar = true
-end
-
-task :default => "pkg/#{spec.name}-#{spec.version}.gem" do
-  puts "generated latest version"
-end
 
 $names = ["Bill","Bob","John","Jack","Alec","Mark","Nick","Evan","Eamon","Joe","Vikram"]
 
@@ -47,7 +35,7 @@ namespace :bm do
     count = ENV["count"] ? ENV["count"].to_i : 25000
     puts "adding #{count} new entries"
     Benchmark.bm do |bm|
-      bm.report { count.times { m = Man.new ; m.name = rand_name } }
+      bm.report { count.times { m = Man.new ; m.name = rand_name ; m.age = (rand*100).to_i} }
     end
   end
 

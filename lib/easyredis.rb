@@ -45,6 +45,8 @@ module EasyRedis
   end
 
   # connect to a redis server
+  #
+  # takes the same options that Redis#new does from the redis gem
   def self.connect(options = {})
     @redis = Redis.new(options)
   end
@@ -130,6 +132,14 @@ module EasyRedis
       end
     end
 
+    def last(n = nil)
+      if n
+        self[-n,-1]
+      else
+        self[-1]
+      end
+    end
+
     def inspect
       "#<EasyRedis::Sort model=#{@klass.name}, field=#{@field.to_s}, order=#{@order.to_s}>"
     end
@@ -211,6 +221,20 @@ module EasyRedis
     # get the first entry where field matches val
     def self.find_by(field,val)
       search_by(field,val,:limit => 1).first
+    end
+
+    def self.search(params)
+      return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
+      result_set_keys = []
+      params.each do |field,value|
+        scr = EasyRedis.score(value)
+        ids = EasyRedis.redis.zrangebyscore(sort_prefix(field),scr,scr)
+        result_set_keys << get_temp_key
+        ids.each {|i| EasyRedis.redis.sadd(result_set_keys.last,i) }
+      end
+      ids = EasyRedis.redis.sinter(*result_set_keys)
+      EasyRedis.redis.del(*result_set_keys)  # run in a seperate thread?
+      ids.map{|i|new(i)}
     end
 
     # get all entries, sorted by the given field
