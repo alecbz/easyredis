@@ -171,15 +171,6 @@ module EasyRedis
     # get all instances of this model
     # ordered by creation time
     def self.all(options = {:order => :asc})
-      #ids = []
-      #if options[:order] == :asc
-      #  ids = EasyRedis.redis.zrange(prefix.pluralize,0,-1)
-      #elsif options[:order] == :desc
-      #  ids = EasyRedis.redis.zrevrange(prefix.pluralize,0,-1)
-      #else
-      #  raise EasyRedis::UnknownOrderOption, options[:order]
-      #end
-      #ids.map{|i| new(i) }
       self.sort_by :created_at, options
     end
 
