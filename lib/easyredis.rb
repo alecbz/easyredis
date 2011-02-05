@@ -180,7 +180,7 @@ module EasyRedis
       #  raise EasyRedis::UnknownOrderOption, options[:order]
       #end
       #ids.map{|i| new(i) }
-      EasyRedis::Sort.new(:created_at
+      EasyRedis::Sort.new(:created_at,options[:order],self)
     end
 
     # find an instance of this model based on its id
