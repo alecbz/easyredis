@@ -6,6 +6,7 @@
 
 
 require 'redis'
+require 'set'
 require 'active_support/inflector'
 
 
@@ -70,6 +71,54 @@ module EasyRedis
     end
   end
 
+  # class representing a sort
+  class Sort
+    include Enumerable
+
+    def initialize(field,order,klass)
+      @field = field
+      @order = order
+      @klass = klass
+    end
+
+    def [](index,limit=nil)
+      if limit
+        offset = index
+        self[offset...(offset+limit)]
+      elsif index.is_a? Range
+        a = index.begin
+        b = index.end
+        b -= 1 if index.exclude_end?
+        ids = []
+        if @order == :asc
+          ids = EasyRedis.redis.zrange(@klass.sort_prefix(@field),a,b)
+        elsif @order == :desc
+          ids = EasyRedis.redis.zrevrange(@klass.sort_prefix(@field),a,b)
+        end
+        ids.map{|i|@klass.new(i)}
+      elsif index.is_a? Integer
+        self[index..index].first
+      end
+    end
+
+    def each
+      self[0..-1].each { |o| yield o }
+    end
+
+    def count
+      EasyRedis.zcard(@klass.sort_prefix(@field))
+    end
+
+    def first(n = nil)
+      if n
+        self[0,n]
+      else
+        self[0]
+      end
+    end
+  end
+
+
   # class representing a data model
   # you want to store in redis
   class Model
@@ -109,7 +158,7 @@ module EasyRedis
 
     # returns number of instances of this model
     def self.count
-      EasyRedis.redis.zcount(prefix.pluralize,"-inf","inf")
+      EasyRedis.redis.zcard(prefix.pluralize)
     end
 
     # get all instances of this model
@@ -144,31 +193,51 @@ module EasyRedis
     def self.search_by(field_name, val, options = {})
       raise EasyRedis::FieldNotSortable, field_name unless @@sorts.member? field_name.to_sym
       scr = EasyRedis.score(val)
-      options[:limit] = [0,options[:limit]] if options[:limit]
-      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr,options)
+      # options[:limit] = [0,options[:limit]] if options[:limit]
+      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field_name),scr,scr,proc_options(options))
       ids.map{|i| new(i) }
     end
     
-    # get the first instance where the given field matches the given value
+    # get the first instance where the given field matches val
     def self.find_by(field_name,val)
       search_by(field_name,val,:limit => 1).first
     end
 
     # get all the entries, sorted by the given field
-    def self.sort_by(field_name,options = {:order => :asc})
-      if @@sorts.member? field_name
-        ids = []
-        if options[:order] == :asc
-          ids = EasyRedis.redis.zrange(sort_prefix(field_name),0,-1)
-        elsif options[:order] == :desc
-          ids = EasyRedis.redis.zrevrange(sort_prefix(field_name),0,-1)
-        else
-          raise EasyRedis::UnknownOrderOption, options[:order]
-        end
-        ids.map{|i|new(i)}
-      else
-        raise EasyRedis::FieldNotSortable, field_name
-      end
+    def self.sort_by(field,options = {:order => :asc})
+      raise EasyRedis::FieldNotSortable, field unless @@sorts.member? field or field == :created_at
+      raise EasyRedis::UnknownOrderOption, options[:order] unless [:asc,:desc].member? options[:order]
+      EasyRedis::Sort.new(field,options[:order],self)
+      #ids = []
+      #if options[:order] == :asc
+      #  ids = EasyRedis.redis.zrange(sort_prefix(field_name),0,-1)
+      #elsif options[:order] == :desc
+      #  ids = EasyRedis.redis.zrevrange(sort_prefix(field_name),0,-1)
+      #else
+      #  raise EasyRedis::UnknownOrderOption, options[:order]
+      #end
+      #ids.map{|i|new(i)}
+    end
+
+    # gives all values for the given field that begins with str
+    def self.matches(field,str)
+      scr = EasyRedis.score(str)
+      a,b = scr, scr+1/(27.0**str.size)
+      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field), "#{a}", "(#{b}")
+      s = Set.new  
+      ids.each{|i| s << new(i).send(field.to_s) }
+      s.to_a
+    end
+
+    # searches for all entries where the given field begins with the given string
+    #
+    # should only be called on string fields
+    def self.match(field,str, options = {})
+      raise EasyRedis::FieldNotSortable, filename unless @@sorts.member? field
+      scr = EasyRedis.score(str)
+      a,b = scr, scr+1/(27.0**str.size)
+      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field), "#{a}", "(#{b}", proc_options(options))
+      ids.map{|i| new(i)}
     end
 
     # destroy all instances of this model
@@ -224,14 +293,28 @@ module EasyRedis
 
     private 
 
+    def self.get_temp_key
+      i = EasyRedis.redis.incr prefix.pluralize + ':next_tmp_id'
+      "#{name}:tmp_#{i}"
+    end
+
+    def self.proc_options(options)
+      opts = {}
+      opts[:limit] = [0,options[:limit]] if options[:limit]
+      opts
+    end
+
     def self.prefix
       self.name.downcase
     end
 
     def self.sort_prefix(field)
-      prefix.pluralize + ':sort_' + field.to_s
+      if field == :created_at
+        prefix.pluralize
+      else
+        prefix.pluralize + ':sort_' + field.to_s
+      end
     end
-
 
     def prefix
       self.class.prefix
