@@ -153,6 +153,8 @@ module EasyRedis
 
     # add a field to the model
     def self.field(name)
+      @@fields ||= []
+      @@fields << name.to_sym
       name = name.to_s
       getter = name
       setter = name + "="
@@ -344,6 +346,13 @@ module EasyRedis
 
     def inspect
       "#<#{self.class.name}:#{@id}>"
+    end
+
+    # clears all fields fetched from redis
+    def clear
+      @@fields.each do |field|
+        self.instance_variable_set("@"+field.to_s,nil)
+      end
     end
 
 
