@@ -6,18 +6,21 @@ Redis is a very fast key-value store that supports data structures like lists, (
 
 ## Installation
 
-You can get the source with git:
+You can just grab the gem and you're good to go:
+
+    $ gem install easyredis
+
+Or, you can get the source with git:
 
     $ git clone git://github.com/alecbenzer/easyredis.git
 
 or just download and extract a tar archive with the Downloads button.
 
-Once you have the source, run:
+Once you have the source, you can run:
 
-    $ rake
-    $ gem install pkg/easyredis-x.x.x.gem
-
-Where x.x.x is the current version number.
+    $ rake manifest
+    $ rake build_gemspec
+    $ rake install easyredis.gemspec
 
 ## Basics
 
@@ -69,5 +72,5 @@ We can now sort our posts by title:
 
 And also search:
 
-    Post.search_by(:title,"A common title")  # all posts with this title
-    Post.find_by(:title,"My First Post")  # just one post
+    Post.search_by :title, "A common title"  # all posts with this title
+    Post.find_by :title, "My First Post"  # just one post
