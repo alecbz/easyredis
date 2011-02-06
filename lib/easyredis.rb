@@ -348,7 +348,7 @@ module EasyRedis
       "#<#{self.class.name}:#{@id}>"
     end
 
-    # clears all fields fetched from redis
+    # clears all fields, causing future gets to reretrive them from redis
     def clear
       @@fields.each do |field|
         self.instance_variable_set("@"+field.to_s,nil)
