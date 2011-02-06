@@ -1,0 +1,6 @@
+Manifest
+README.md
+Rakefile
+lib/easyredis.rb
+tests/benchmark.rb
+tests/test.rb
