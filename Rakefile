@@ -55,11 +55,15 @@ namespace :bm do
 
   task :singlesearch do
     puts "seaching #{Man.count} entries by a particular age"
+    puts "NOTE: this metric is only relevant if Model#search is not detecting single-field searches and using Model#search_by"
     age = rand(100)
-    Benchmark.bm(13) do |bm|
-      bm.report("Man#search") { Man.search(:age => age) }
-      bm.report("Man#search_by") { Man.search_by(:age,age) }
-    end
+    t1 = Benchmark.measure { Man.search(:age => age) }
+    t2 = Benchmark.measure { Man.search_by(:age,age) }
+    puts "Model#search:"
+    puts t1.format
+    puts "Model#search_by:"
+    puts t2.format
+    puts "search is #{((t1.real/t2.real) - 1)*100}% slower"
   end
 
   task :multisearch do

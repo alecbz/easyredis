@@ -95,19 +95,26 @@ module EasyRedis
         offset = index
         self[offset...(offset+limit)]
       elsif index.is_a? Range
-        a = index.begin
-        b = index.end
-        b -= 1 if index.exclude_end?
-        ids = []
-        if @order == :asc
-          ids = EasyRedis.redis.zrange(@klass.sort_prefix(@field),a,b)
-        elsif @order == :desc
-          ids = EasyRedis.redis.zrevrange(@klass.sort_prefix(@field),a,b)
-        end
-        ids.map{|i|@klass.new(i)}
+        access(index)
       elsif index.is_a? Integer
         self[index..index].first
       end
+    end
+
+    # helper method for []
+    #
+    # takes a range and returns corresponding elements
+    def access(range)
+      a = range.begin
+      b = range.end
+      b -= 1 if index.exclude_end?
+      ids = []
+      if @order == :asc
+        ids = EasyRedis.redis.zrange(@klass.sort_prefix(@field),a,b)
+      elsif @order == :desc
+        ids = EasyRedis.redis.zrevrange(@klass.sort_prefix(@field),a,b)
+      end
+      ids.map{|i|@klass.new(i)}
     end
 
     # iterate through all members of this sort
@@ -196,7 +203,7 @@ module EasyRedis
     def self.all(options = {:order => :asc})
       self.sort_by :created_at, options
     end
-    
+
     def self.first(n = nil)
       self.all.first(n)
     end
@@ -230,24 +237,21 @@ module EasyRedis
       ids = EasyRedis.redis.zrangebyscore(sort_prefix(field),scr,scr,proc_options(options))
       ids.map{|i| new(i) }
     end
-    
+
     # get the first entry where field matches val
     def self.find_by(field,val)
       search_by(field,val,:limit => 1).first
     end
 
     def self.search(params)
-      #return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
-      result_set_keys = []
+      return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
+      result_set = nil
       params.each do |field,value|
         scr = EasyRedis.score(value)
         ids = EasyRedis.redis.zrangebyscore(sort_prefix(field),scr,scr)
-        result_set_keys << get_temp_key
-        ids.each {|i| EasyRedis.redis.sadd(result_set_keys.last,i) }
+        result_set = result_set ? (result_set & Set.new(ids)) : Set.new(ids)
       end
-      ids = EasyRedis.redis.sinter(*result_set_keys)
-      EasyRedis.redis.del(*result_set_keys)  # run in a seperate thread?
-      ids.map{|i|new(i)}
+      result_set.map{|i|new(i)}
     end
 
     # get all entries, sorted by the given field
@@ -321,7 +325,7 @@ module EasyRedis
     def [](field)
       EasyRedis.redis.hget(key_name,field)
     end
-    
+
     # directly change a field of this entry's redis hash
     #
     # note that you cannot access created_at or id with these methods
