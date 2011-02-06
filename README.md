@@ -43,7 +43,7 @@ We can now make post objects:
 Posts are automatically given ids that we can then use to retrive them:
 
     id = p.id
-    p = Post[id]  # or Post.find(id)
+    p = Post.find(id)
     p.title  # => "My First Post"
 
 We also get a created_at field for free that we can sort by.

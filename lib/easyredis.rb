@@ -134,7 +134,7 @@ module EasyRedis
 
     def last(n = nil)
       if n
-        self[-n,-1]
+        self[-n..-1]
       else
         self[-1]
       end
@@ -194,6 +194,18 @@ module EasyRedis
     def self.all(options = {:order => :asc})
       self.sort_by :created_at, options
     end
+    
+    def self.first(n = nil)
+      self.all.first(n)
+    end
+
+    def self.last(n = nil)
+      self.all.last(n)
+    end
+
+    def self.rand
+      self[Kernel.rand(self.count)]
+    end
 
     # find an instance of this model based on its id
     def self.find(id)
@@ -204,9 +216,8 @@ module EasyRedis
       end
     end
 
-    # alias for Model#find
-    def self.[](id)
-      find(id)
+    def self.[](index,amt=nil)
+      self.all[index,amt]
     end
 
     # get all entries where field matches val
@@ -224,7 +235,7 @@ module EasyRedis
     end
 
     def self.search(params)
-      return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
+      #return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
       result_set_keys = []
       params.each do |field,value|
         scr = EasyRedis.score(value)

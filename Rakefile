@@ -15,17 +15,17 @@ end
 require 'benchmark'
 require './tests/test'
 
-$names = ["Bill","Bob","John","Jack","Alec","Mark","Nick","Evan","Eamon","Joe","Vikram"]
-
 def rand_name
-  $names[rand*$names.size]
+  length = 2
+  chars = []
+  length.times { chars << (rand(26) + 65).chr }
+  chars.join
 end
+
 
 namespace :bm do
   task :clear do
-    count = Man.count
-
-    puts "destroying #{$count} previous entries"
+    puts "destroying #{Man.count} previous entries"
     Benchmark.bm do |bm|
       bm.report { Man.destroy_all }
     end
@@ -34,43 +34,50 @@ namespace :bm do
   task :add do
     count = ENV["count"] ? ENV["count"].to_i : 25000
     puts "adding #{count} new entries"
-    Benchmark.bm do |bm|
-      bm.report { count.times { m = Man.new ; m.name = rand_name ; m.age = (rand*100).to_i} }
+    time = Benchmark::Tms.new
+    count.times do
+      name = rand_name
+      age = rand(100)
+      time += Benchmark.measure { m = Man.new ; m.name = name ; m.age = age }
     end
+    puts time.format
   end
 
   task :populate => [:clear, :add]
 
-  task :sort do
-    puts "sorting #{Man.count} entries by name"
-    Benchmark.bm do |bm|
-      #bm.report("ruby:") { Man.all.sort_by { |m| m.name } }
-      #bm.report("redis:") { Man.sort_by(:name) }
-      bm.report { Man.sort_by(:name) }
-    end
-  end
-
   task :search do
     puts "searching #{Man.count} entries by a particular name"
+    name = Man.rand.name
     Benchmark.bm do |bm|
-      name = rand_name
-      #bm.report("ruby:") { Man.all.select {|m| m.name == name} }
-      #bm.report("redis:") { Man.search_by(:name,name) }
       bm.report { Man.search_by(:name,name) }
     end
   end
 
+  task :singlesearch do
+    puts "seaching #{Man.count} entries by a particular age"
+    age = rand(100)
+    Benchmark.bm(13) do |bm|
+      bm.report("Man#search") { Man.search(:age => age) }
+      bm.report("Man#search_by") { Man.search_by(:age,age) }
+    end
+  end
+
+  task :multisearch do
+    man = Man.rand
+    name = man.name
+    age = man.age
+    count = 0
+    time = Benchmark.measure { count = Man.search(:name => name, :age => age).size }
+    puts "retrived #{count} out of #{Man.count} entries in:"
+    puts time.format
+  end
+
   task :find do
-    puts "finding one of #{Man.count} entry by name"
+    puts "finding one of #{Man.count} entries by name"
+    name = Man.rand.name
     Benchmark.bm do |bm|
-      name = rand_name
-      #bm.report("redis:") { Man.find_by(:name,name) }
       bm.report { Man.find_by(:name,name) }
     end
   end
 
-end
-
-task :doc do
-  puts `rdoc lib/ --title "EasyRedis"`
 end
