@@ -32,11 +32,19 @@ module EasyRedis
 
   # gets a score for a generic object
   #
-  # Uses string_score if the object is a string,
-  # and just returns the object otherwise (presumably its a number)
+  # The score is determined as follows:
+  # First, if the object is a string, string_score is used to get its score.
+  # Otherwise, we try calling the following methods on the object in turn, returning the first that works: scr, to_f, to_i.
+  # If none of those work, we simply return the object itself.
   def self.score(obj)
     if obj.is_a? String
       string_score(obj)
+    elsif obj.respond_to? "scr"
+      obj.scr
+    elsif obj.respond_to? "to_f"
+      obj.to_f
+    elsif obj.respond_to? "to_i"
+      obj.to_i
     else
       obj
     end
@@ -186,7 +194,6 @@ module EasyRedis
         instance_variable_set(instance_var,val)
 
         if @@sorts.member? name.to_sym
-          # score = val.is_a?(String) ? EasyRedis.string_score(val) : val
           EasyRedis.redis.zadd(sort_prefix(name),EasyRedis.score(val),@id)
         end
       end
