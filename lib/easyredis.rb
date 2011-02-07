@@ -16,6 +16,9 @@ module EasyRedis
   
   # generate a 'score' for a string
   # used for storing it in a sorted set
+  #
+  # This method effectively turns a string into a base 27 floating point number,
+  # where 0 corresponds to no letter, 1 to A, 2 to B, etc.
   def self.string_score(str)
     str = str.downcase
     mult = 1.0
@@ -29,7 +32,7 @@ module EasyRedis
 
   # gets a score for a generic object
   #
-  # Uses EasyRedis#string_score if the object is a string,
+  # Uses string_score if the object is a string,
   # and just returns the object otherwise (presumably its a number)
   def self.score(obj)
     if obj.is_a? String
@@ -88,8 +91,9 @@ module EasyRedis
 
     # access elements in this sort
     #
-    # Work's like ruby's Array#[]. It can take a specific index, a range, or an offset, amount pair.
-    # Calling this method will actually query the redis server for ids
+    # Work's like an Array's [] method. It can take a specific index, a range, or an offset, amount pair.
+    # This method uses the underlying access method, which handles the actual retrival.
+    # Calling this method will actually query redis to retrive objects.
     def [](index,limit=nil)
       if limit
         offset = index
@@ -139,6 +143,7 @@ module EasyRedis
       end
     end
 
+    # return the last element of this sort, or the last n elements, if n is given
     def last(n = nil)
       if n
         self[-n..-1]
@@ -204,14 +209,17 @@ module EasyRedis
       self.sort_by :created_at, options
     end
 
+    # same as all.first
     def self.first(n = nil)
       self.all.first(n)
     end
 
+    # same as all.last
     def self.last(n = nil)
       self.all.last(n)
     end
 
+    # returns a random entry of this model
     def self.rand
       self[Kernel.rand(self.count)]
     end
@@ -225,6 +233,9 @@ module EasyRedis
       end
     end
 
+    # access entries of this model based on time
+    # 
+    # same as all.[]
     def self.[](index,amt=nil)
       self.all[index,amt]
     end
@@ -243,6 +254,9 @@ module EasyRedis
       search_by(field,val,:limit => 1).first
     end
 
+    # search the model based on multiple parameters
+    #
+    # takes a hash of field => value pairs
     def self.search(params)
       return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
       result_set = nil
@@ -303,7 +317,7 @@ module EasyRedis
     #
     # If no id is passed, one is generated for you.
     # Otherwise, sets the id field to the passed id, but does not check to see if it is a valid id for this model.
-    # Users should use Model#find or Model#[] when retiving models by id, as these check for valid ids.
+    # Users should use find when retiving models by id, as these check for valid ids.
     def initialize(id=nil)
       if id
         @id = id
@@ -362,6 +376,7 @@ module EasyRedis
 
     private 
 
+    # generate a temporary key name associated with this model
     def self.get_temp_key
       i = EasyRedis.redis.incr prefix.pluralize + ':next_tmp_id'
       "#{name}:tmp_#{i}"
