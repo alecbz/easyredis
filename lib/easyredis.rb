@@ -7,7 +7,6 @@
 
 require 'redis'
 require 'set'
-#require 'active_support/inflector'
 
 
 # main EasyRedis module which
@@ -84,24 +83,14 @@ module EasyRedis
     end
   end
 
-  # class representing a sort
-  class Sort
+  # class representing a generic collection
+  class Collection
     include Enumerable
-
-    # initialize the sort with a specific field, ordering option, and model
-    def initialize(field,order,klass)
-      raise EasyRedis::FieldNotSortable, field  unless klass.sortable?(field) 
-      raise EasyRedis::UnknownOrderOption, order  unless [:asc,:desc].member? order
-      @field = field
-      @order = order
-      @klass = klass
-    end
 
     # access elements in this sort
     #
-    # Work's like an Array's [] method. It can take a specific index, a range, or an offset, amount pair.
+    # Work's like an Array's [] method. It can take a specific index, a range, or an offset and an amount/limit.
     # This method uses the underlying access method, which handles the actual retrival.
-    # Calling this method will actually query redis to retrive objects.
     def [](index,limit=nil)
       if limit
         offset = index
@@ -113,8 +102,66 @@ module EasyRedis
       end
     end
 
-    # helper method for []
+    # iterate through all members of this collection
+    def each
+      self[0..-1].each { |o| yield o }
+    end
+
+    # return the fist element of this collection, or the first n elements, if n is given
+    def first(n = nil)
+      if n
+        self[0,n]
+      else
+        self[0]
+      end
+    end
+
+    # return the last element of this collection, or the last n elements, if n is given
+    def last(n = nil)
+      if n
+        self[-n..-1]
+      else
+        self[-1]
+      end
+    end
+
+    private
+
+    # access the elements corresponding to the given range
     #
+    # meant to be overridden in child classes
+    def access(range)
+      []
+    end
+
+  end
+
+  # class representing a sort
+  class Sort < Collection
+
+    # initialize the sort with a specific field, ordering option, and model
+    def initialize(field,order,klass)
+      raise EasyRedis::FieldNotSortable, field  unless klass.sortable?(field) 
+      raise EasyRedis::UnknownOrderOption, order  unless [:asc,:desc].member? order
+      @field = field
+      @order = order
+      @klass = klass
+    end
+
+    # return the number of elements in this sort
+    #
+    # As of now, idential to the Model's count method.
+    # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them, which is much slower than a ZCARD command
+    def count
+      EasyRedis.zcard(@klass.sort_prefix(@field))
+    end
+
+    def inspect
+      "#<EasyRedis::Sort model=#{@klass.name}, field=#{@field.to_s}, order=#{@order.to_s}>"
+    end
+
+    private
+
     # takes a range and returns corresponding elements
     def access(range)
       a = range.begin
@@ -127,41 +174,6 @@ module EasyRedis
         ids = EasyRedis.redis.zrevrange(@klass.sort_prefix(@field),a,b)
       end
       ids.map{|i|@klass.new(i)}
-    end
-
-    # iterate through all members of this sort
-    def each
-      self[0..-1].each { |o| yield o }
-    end
-
-    # return the number of elements in this sort
-    #
-    # As of now, idential to the Model's count method.
-    # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them, which is much slower than a ZCARD command
-    def count
-      EasyRedis.zcard(@klass.sort_prefix(@field))
-    end
-
-    # return the fist element of this sort, or the first n elements, if n is given
-    def first(n = nil)
-      if n
-        self[0,n]
-      else
-        self[0]
-      end
-    end
-
-    # return the last element of this sort, or the last n elements, if n is given
-    def last(n = nil)
-      if n
-        self[-n..-1]
-      else
-        self[-1]
-      end
-    end
-
-    def inspect
-      "#<EasyRedis::Sort model=#{@klass.name}, field=#{@field.to_s}, order=#{@order.to_s}>"
     end
 
   end
