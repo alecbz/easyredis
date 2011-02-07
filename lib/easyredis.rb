@@ -34,13 +34,13 @@ module EasyRedis
   #
   # The score is determined as follows:
   # First, if the object is a string, string_score is used to get its score.
-  # Otherwise, we try calling the following methods on the object in turn, returning the first that works: scr, to_f, to_i.
+  # Otherwise, we try calling the following methods on the object in turn, returning the first that works: score, to_f, to_i.
   # If none of those work, we simply return the object itself.
   def self.score(obj)
     if obj.is_a? String
       string_score(obj)
-    elsif obj.respond_to? "scr"
-      obj.scr
+    elsif obj.respond_to? "score"
+      obj.score
     elsif obj.respond_to? "to_f"
       obj.to_f
     elsif obj.respond_to? "to_i"
@@ -136,8 +136,8 @@ module EasyRedis
 
     # return the number of elements in this sort
     #
-    # As of now, idential to the Model's #count method.
-    # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them
+    # As of now, idential to the Model's count method.
+    # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them, which is much slower than a ZCARD command
     def count
       EasyRedis.zcard(@klass.sort_prefix(@field))
     end
