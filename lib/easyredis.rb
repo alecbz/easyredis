@@ -72,6 +72,17 @@ module EasyRedis
     end
   end
 
+  # exception that indicates that the given field has not been indexed for text-searching
+  class FieldNotTextSearchable < RuntimeError
+    def initialize(field)
+      @message = "field '#{field.to_s}' not text-searchable"
+    end
+    
+    def to_s
+      @message
+    end
+  end
+
   # exception that indicated an unknown ordering option was encountered
   class UnknownOrderOption < RuntimeError
     def initialize(opt)
@@ -153,7 +164,7 @@ module EasyRedis
     # As of now, idential to the Model's count method.
     # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them, which is much slower than a ZCARD command
     def count
-      EasyRedis.zcard(@klass.sort_prefix(@field))
+      EasyRedis.zcard(@klass.sort_key(@field))
     end
 
     def inspect
@@ -169,9 +180,9 @@ module EasyRedis
       b -= 1 if range.exclude_end?
       ids = []
       if @order == :asc
-        ids = EasyRedis.redis.zrange(@klass.sort_prefix(@field),a,b)
+        ids = EasyRedis.redis.zrange(@klass.sort_key(@field),a,b)
       elsif @order == :desc
-        ids = EasyRedis.redis.zrevrange(@klass.sort_prefix(@field),a,b)
+        ids = EasyRedis.redis.zrevrange(@klass.sort_key(@field),a,b)
       end
       ids.map{|i|@klass.new(i)}
     end
@@ -209,13 +220,13 @@ module EasyRedis
         instance_variable_set(instance_var,val)
 
         if self.class.sortable? name.to_sym
-          EasyRedis.redis.zadd(sort_prefix(name),EasyRedis.score(val),@id)
+          EasyRedis.redis.zadd(sort_key(name),EasyRedis.score(val),@id)
         end
 
         if self.class.text_search? name.to_sym
-          val.split.each do |word|
-            EasyRedis.redis.zadd "#{prefix}:term:#{word}", created_at.to_i, id
-            EasyRedis.redis.zadd "#{prefix}:terms", score(word), word
+          val.split.each do |term|
+            EasyRedis.redis.zadd term_key(name,term), created_at.to_i, id
+            EasyRedis.redis.zadd terms_key(name), EasyRedis.score(term), term
           end
         end
       end
@@ -229,6 +240,7 @@ module EasyRedis
     # index a field for text searching
     def self.text_search(field)
       @@text_searches << field.to_sym
+      sort_on(field) unless sortable? field
     end
 
     # returns number of instances of this model
@@ -278,7 +290,7 @@ module EasyRedis
       raise EasyRedis::FieldNotSortable, field unless @@sorts.member? field.to_sym
       scr = EasyRedis.score(val)
       # options[:limit] = [0,options[:limit]] if options[:limit]
-      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field),scr,scr,proc_options(options))
+      ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr,proc_options(options))
       ids.map{|i| new(i) }
     end
 
@@ -295,7 +307,7 @@ module EasyRedis
       result_set = nil
       params.each do |field,value|
         scr = EasyRedis.score(value)
-        ids = EasyRedis.redis.zrangebyscore(sort_prefix(field),scr,scr)
+        ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr)
         result_set = result_set ? (result_set & Set.new(ids)) : Set.new(ids)
       end
       result_set.map{|i|new(i)}
@@ -306,26 +318,23 @@ module EasyRedis
       EasyRedis::Sort.new(field,options[:order],self)
     end
 
-    # gives all values for the given field that begins with str
+    # gives all values for the given field that begin with str
     #
-    # This method is currently iterates through all existing entries. It is therefore very slow and should probably not be used at this time.
+    # The field must have been indexed with text_search.
     def self.matches(field,str)
+      raise FieldNotTextSearchable, field unless self.text_search? field
       scr = EasyRedis.score(str)
       a,b = scr, scr+1/(27.0**str.size)
-      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field), "#{a}", "(#{b}")
-      s = Set.new  
-      ids.each{|i| s << new(i).send(field.to_s) }
-      s.to_a
+      EasyRedis.redis.zrangebyscore(terms_key(field), "#{a}", "(#{b}")
     end
 
-    # searches for all entries where field begins with str
+    # searches for all entries where field contains the string str
     #
-    # works with string fields that have been indexed with sort_on
+    # The string must appear exactly as a term in field's value. To search based on the beginning of a term, you can combine this method with matches.
+    # The field must have been indexed with text_search.
     def self.match(field,str, options = {})
-      raise EasyRedis::FieldNotSortable, filename unless @@sorts.member? field
-      scr = EasyRedis.score(str)
-      a,b = scr, scr+1/(27.0**str.size)
-      ids = EasyRedis.redis.zrangebyscore(sort_prefix(field), "#{a}", "(#{b}", proc_options(options))
+      raise EasyRedis::FieldNotTextSearchable, filename unless text_search? field
+      ids = EasyRedis.redis.zrange(term_key(field,str), 0, -1, proc_options(options))
       ids.map{|i| new(i)}
     end
 
@@ -342,7 +351,8 @@ module EasyRedis
     # destroy all instances of this model
     def self.destroy_all
       all.each {|x| x.destroy}
-      @@sorts.each {|field| EasyRedis.redis.del(sort_prefix(field)) }
+      @@sorts.each {|field| EasyRedis.redis.del(sort_key(field)) }
+      @@text_searches.each {|field| EasyRedis.redis.del(terms_key(field)) }
       EasyRedis.redis.del(prefix)
       EasyRedis.redis.del(prefix + ":next_id")
     end
@@ -416,7 +426,7 @@ module EasyRedis
 
     # generate a temporary key name associated with this model
     def self.get_temp_key
-      i = EasyRedis.redis.incr prefix + ':next_tmp_id'
+      i = EasyRedis.redis.incr "#{prefix}:next_tmp_id"
       "#{name}:tmp_#{i}"
     end
 
@@ -430,20 +440,36 @@ module EasyRedis
       self.name.downcase
     end
 
-    def self.sort_prefix(field)
+    def self.sort_key(field)
       if field == :created_at
         prefix
       else
-        prefix + ':sort_' + field.to_s
+        "#{prefix}:sort_#{field.to_s}"
       end
+    end
+
+    def self.terms_key(field)
+      "#{prefix}:terms_#{field.to_s}"
+    end
+
+    def self.term_key(field,term)
+      "#{prefix}:term_#{field}:#{term}"
     end
 
     def prefix
       self.class.prefix
     end
 
-    def sort_prefix(field)
-      self.class.sort_prefix(field)
+    def sort_key(field)
+      self.class.sort_key(field)
+    end
+
+    def terms_key(field)
+      self.class.terms_key(field)
+    end
+
+    def term_key(field,term)
+      self.class.term_key(field,term)
     end
   end
 end

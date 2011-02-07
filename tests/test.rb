@@ -4,7 +4,7 @@ class Man < EasyRedis::Model
   field :name
   field :age
 
-  sort_on :name
+  text_search :name
   sort_on :age
 end
 

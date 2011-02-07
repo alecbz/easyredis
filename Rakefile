@@ -15,8 +15,7 @@ end
 require 'benchmark'
 require './tests/test'
 
-def rand_name
-  length = 2
+def rand_name(length=2)
   chars = []
   length.times { chars << (rand(26) + 65).chr }
   chars.join
@@ -34,8 +33,9 @@ namespace :bm do
     count = ENV["count"] ? ENV["count"].to_i : 25000
     puts "adding #{count} new entries"
     time = Benchmark::Tms.new
+    length = Math.log(3*count,26).round
     count.times do
-      name = rand_name
+      name = rand_name(length)
       age = rand(100)
       time += Benchmark.measure { m = Man.new ; m.name = name ; m.age = age }
     end

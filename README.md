@@ -74,3 +74,19 @@ And also search:
 
     Post.search_by :title, "A common title"  # all posts with this title
     Post.find_by :title, "My First Post"  # just one post
+
+## Text Search and Completions
+
+We could have defined Post like this:
+
+    class Post < EasyRedis::Model
+      field :title
+      field :body
+
+      text_search :title
+    end
+
+Now we can perform text searches and completions against our title field:
+
+    Post.matches(:title,"Fir")  # titles that begin with "Fir"
+    Post.match(:title,"First")  # posts whose titles contain "First"
