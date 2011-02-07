@@ -7,7 +7,7 @@
 
 require 'redis'
 require 'set'
-require 'active_support/inflector'
+#require 'active_support/inflector'
 
 
 # main EasyRedis module which
@@ -119,7 +119,7 @@ module EasyRedis
     def access(range)
       a = range.begin
       b = range.end
-      b -= 1 if index.exclude_end?
+      b -= 1 if range.exclude_end?
       ids = []
       if @order == :asc
         ids = EasyRedis.redis.zrange(@klass.sort_prefix(@field),a,b)
@@ -170,6 +170,9 @@ module EasyRedis
   # class representing a data model
   # you want to store in redis
   class Model
+    
+    @@sorts = []
+    @@text_searches = []
 
     # add a field to the model
     def self.field(name)
@@ -193,21 +196,32 @@ module EasyRedis
         EasyRedis.redis.hset(key_name,name,Marshal.dump(val))
         instance_variable_set(instance_var,val)
 
-        if @@sorts.member? name.to_sym
+        if self.class.sortable? name.to_sym
           EasyRedis.redis.zadd(sort_prefix(name),EasyRedis.score(val),@id)
+        end
+
+        if self.class.text_search? name.to_sym
+          val.split.each do |word|
+            EasyRedis.redis.zadd "#{prefix}:term:#{word}", created_at.to_i, id
+            EasyRedis.redis.zadd "#{prefix}:terms", score(word), word
+          end
         end
       end
     end
 
     # index a field to be sorted/searched
     def self.sort_on(field)
-      @@sorts ||= []
       @@sorts << field.to_sym
+    end
+
+    # index a field for text searching
+    def self.text_search(field)
+      @@text_searches << field.to_sym
     end
 
     # returns number of instances of this model
     def self.count
-      EasyRedis.redis.zcard(prefix.pluralize)
+      EasyRedis.redis.zcard(prefix)
     end
 
     # get all instances of this model
@@ -233,7 +247,7 @@ module EasyRedis
 
     # find an instance of this model based on its id
     def self.find(id)
-      if EasyRedis.redis.zscore(prefix.pluralize,id)
+      if EasyRedis.redis.zscore(prefix,id)
         new(id)
       else
         nil
@@ -305,14 +319,19 @@ module EasyRedis
 
     # indicates whether field has been indexed with sort_on
     def self.sortable?(field)
-      @@sorts.member? field or field.to_sym == :created_at
+      @@sorts and (@@sorts.member? field or field.to_sym == :created_at)
+    end
+
+    # indicates whether field has been indexed with text_search
+    def self.text_search?(field)
+      @@text_searches and @@text_searches.member?(field)
     end
 
     # destroy all instances of this model
     def self.destroy_all
       all.each {|x| x.destroy}
       @@sorts.each {|field| EasyRedis.redis.del(sort_prefix(field)) }
-      EasyRedis.redis.del(prefix.pluralize)
+      EasyRedis.redis.del(prefix)
       EasyRedis.redis.del(prefix + ":next_id")
     end
 
@@ -330,14 +349,14 @@ module EasyRedis
         @id = id
       else
         @id = EasyRedis.redis.incr(prefix + ':next_id')
-        EasyRedis.redis.zadd(prefix.pluralize,Time.now.to_i,@id)
+        EasyRedis.redis.zadd(prefix,Time.now.to_i,@id)
         @id
       end
     end
 
     # get the creation time of an entry
     def created_at
-      Time.at(EasyRedis.redis.zscore(prefix.pluralize,@id).to_i)
+      Time.at(EasyRedis.redis.zscore(prefix,@id).to_i)
     end
 
     # directly access a field of this entry's redis hash
@@ -360,7 +379,7 @@ module EasyRedis
 
     # remove the entry
     def destroy
-      EasyRedis.redis.zrem(prefix.pluralize,@id)
+      EasyRedis.redis.zrem(prefix,@id)
       EasyRedis.redis.del(key_name)
     end
 
@@ -385,7 +404,7 @@ module EasyRedis
 
     # generate a temporary key name associated with this model
     def self.get_temp_key
-      i = EasyRedis.redis.incr prefix.pluralize + ':next_tmp_id'
+      i = EasyRedis.redis.incr prefix + ':next_tmp_id'
       "#{name}:tmp_#{i}"
     end
 
@@ -401,9 +420,9 @@ module EasyRedis
 
     def self.sort_prefix(field)
       if field == :created_at
-        prefix.pluralize
+        prefix
       else
-        prefix.pluralize + ':sort_' + field.to_s
+        prefix + ':sort_' + field.to_s
       end
     end
 
