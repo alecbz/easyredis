@@ -18,6 +18,9 @@ module EasyRedis
   #
   # This method effectively turns a string into a base 27 floating point number,
   # where 0 corresponds to no letter, 1 to A, 2 to B, etc.
+  #
+  # @param [String] str the string we are computing a score for
+  # @return [Number] the string's score
   def self.string_score(str)
     str = str.downcase
     mult = 1.0
@@ -32,9 +35,12 @@ module EasyRedis
   # gets a score for a generic object
   #
   # The score is determined as follows:
-  # First, if the object is a string, string_score is used to get its score.
+  # First, if the object is a string, {string_score} is used to get its score.
   # Otherwise, we try calling the following methods on the object in turn, returning the first that works: score, to_f, to_i.
   # If none of those work, we simply return the object itself.
+  #
+  # @param obj the object to retrive a score for
+  # @return [Number] the object's score
   def self.score(obj)
     if obj.is_a? String
       string_score(obj)
@@ -50,6 +56,7 @@ module EasyRedis
   end
 
   # access the redis object
+  # @return [Redis]
   def self.redis
     @redis
   end
@@ -57,6 +64,8 @@ module EasyRedis
   # connect to a redis server
   #
   # takes the same options that Redis#new does from the redis gem
+  #
+  # @param [Hash] options a hash of options to feed to Redis.new
   def self.connect(options = {})
     @redis = Redis.new(options)
   end
@@ -102,6 +111,12 @@ module EasyRedis
     #
     # Work's like an Array's [] method. It can take a specific index, a range, or an offset and an amount/limit.
     # This method uses the underlying access method, which handles the actual retrival.
+    #
+    # @param [Range, Number] index either a number corresponding to a specific element,
+    #   a range corresponding to a range of elements,
+    #   or a number indicating an offset, if limit is also specified
+    #
+    # @param [Number] limit index is interpreted as an offset and limit is the number of elements to return from that offset
     def [](index,limit=nil)
       if limit
         offset = index
@@ -151,6 +166,10 @@ module EasyRedis
   class Sort < Collection
 
     # initialize the sort with a specific field, ordering option, and model
+    #
+    # @param [Symbol] field a symbol corresponding to a field of klass
+    # @param [:asc, :desc] order a symbol specifying to sort in either ascending or descending order
+    # @param [Class] klass the klass whose entries we are accessing
     def initialize(field,order,klass)
       raise EasyRedis::FieldNotSortable, field  unless klass.sortable?(field) 
       raise EasyRedis::UnknownOrderOption, order  unless [:asc,:desc].member? order
@@ -198,6 +217,8 @@ module EasyRedis
     @@text_searches = []
 
     # add a field to the model
+    #
+    # @param [Symbol] name a symbol representing the name of the field
     def self.field(name)
       @@fields ||= []
       @@fields << name.to_sym
@@ -233,11 +254,15 @@ module EasyRedis
     end
 
     # index a field to be sorted/searched
+    #
+    # @param (see #field)
     def self.sort_on(field)
       @@sorts << field.to_sym
     end
 
     # index a field for text searching
+    #
+    # @param (see #field)
     def self.text_search(field)
       @@text_searches << field.to_sym
       sort_on(field) unless sortable? field
@@ -254,12 +279,12 @@ module EasyRedis
       self.sort_by :created_at, options
     end
 
-    # same as all.first
+    # same as calling self.all.first
     def self.first(n = nil)
       self.all.first(n)
     end
 
-    # same as all.last
+    # same as calling self.all.last
     def self.last(n = nil)
       self.all.last(n)
     end
@@ -269,7 +294,9 @@ module EasyRedis
       self[Kernel.rand(self.count)]
     end
 
-    # find an instance of this model based on its id
+    # find an entry of this model based on its id
+    #
+    # @param [Integer] id the id of the entry to retrive
     def self.find(id)
       if EasyRedis.redis.zscore(prefix,id)
         new(id)
@@ -280,12 +307,15 @@ module EasyRedis
 
     # access entries of this model based on time
     # 
-    # same as all.[]
+    # same as calling self.all.[]
     def self.[](index,amt=nil)
       self.all[index,amt]
     end
 
     # get all entries where field matches val
+    #
+    # @param [Symbol] field a symbol representing the field to search on
+    # @param val the value of field to search for
     def self.search_by(field, val, options = {})
       raise EasyRedis::FieldNotSortable, field unless @@sorts.member? field.to_sym
       scr = EasyRedis.score(val)
@@ -295,13 +325,15 @@ module EasyRedis
     end
 
     # get the first entry where field matches val
+    #
+    # @param (see #search_by)
     def self.find_by(field,val)
       search_by(field,val,:limit => 1).first
     end
 
     # search the model based on multiple parameters
     #
-    # takes a hash of field => value pairs
+    # @param [Hahs] params a hash of field => value pairs
     def self.search(params)
       return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
       result_set = nil
@@ -320,7 +352,7 @@ module EasyRedis
 
     # gives all values for the given field that begin with str
     #
-    # The field must have been indexed with text_search.
+    # @param [Symbol] field a symbol representing a field indexed with text_search.
     def self.matches(field,str)
       raise FieldNotTextSearchable, field unless self.text_search? field
       scr = EasyRedis.score(str)

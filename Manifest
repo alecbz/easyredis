@@ -1,7 +1,6 @@
 Manifest
 README.md
 Rakefile
-easyredis.gemspec
 lib/easyredis.rb
 tests/benchmark.rb
 tests/test.rb
