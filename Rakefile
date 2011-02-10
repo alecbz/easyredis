@@ -2,8 +2,8 @@ require 'rubygems'
 require 'rake'
 require 'echoe'
 
-Echoe.new('easyredis','0.0.4') do |p|
-  p.description = "simple framework designed to make using redis as a database simpler"
+Echoe.new('easyredis','0.0.5') do |p|
+  p.description = "framework designed to make using redis as a database simpler"
   p.url = "https://github.com/alecbenzer/easyredis"
   p.author = "Alec Benzer"
   p.email = "alecbezer @nospam@ gmail.com"
