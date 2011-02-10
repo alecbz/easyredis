@@ -46,14 +46,24 @@ We can now make post objects:
 Posts are automatically given ids that we can then use to retrive them:
 
     id = p.id
-    p = Post.find(id)
-    p.title  # => "My First Post"
+    p2 = Post.find(id)
+    p2.title  # => "My First Post"
+
+Or, we can choose our own ids:
+
+    p = Post.new("coolpost")
+    p.title = "A Cool Post"
+    p.body = "This post has a high level of coolnes."
+
+    p2 = Post.find("coolpost")  # this is a very fast lookup
+    p2.title  # => "A Cool Post"
 
 We also get a created_at field for free that we can sort by.
 
     p.created_at  # a ruby Time object
     Post.all  # get all posts, ordered by creation time
     Post.all :order => :desc  # specifying an order option
+    Post[41]  # the 42nd (0-based indexing) post that was created
     
 ## Searching and Sorting
 

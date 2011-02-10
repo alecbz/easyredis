@@ -183,7 +183,8 @@ module EasyRedis
     # As of now, idential to the Model's count method.
     # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them, which is much slower than a ZCARD command
     def count
-      EasyRedis.zcard(@klass.sort_key(@field))
+      @count ||= EasyRedis.redis.zcard(@klass.sort_key(@field))
+      @count
     end
 
     def inspect
@@ -203,7 +204,7 @@ module EasyRedis
       elsif @order == :desc
         ids = EasyRedis.redis.zrevrange(@klass.sort_key(@field),a,b)
       end
-      ids.map{|i|@klass.new(i)}
+      ids.map{|i|@klass.build(i)}
     end
 
   end
@@ -299,7 +300,7 @@ module EasyRedis
     # @param [Integer] id the id of the entry to retrive
     def self.find(id)
       if EasyRedis.redis.zscore(prefix,id)
-        new(id)
+        build(id)
       else
         nil
       end
@@ -321,7 +322,7 @@ module EasyRedis
       scr = EasyRedis.score(val)
       # options[:limit] = [0,options[:limit]] if options[:limit]
       ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr,proc_options(options))
-      ids.map{|i| new(i) }
+      ids.map{|i| build(i) }
     end
 
     # get the first entry where field matches val
@@ -333,7 +334,7 @@ module EasyRedis
 
     # search the model based on multiple parameters
     #
-    # @param [Hahs] params a hash of field => value pairs
+    # @param [Hash] params a hash of field => value pairs
     def self.search(params)
       return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
       result_set = nil
@@ -342,7 +343,7 @@ module EasyRedis
         ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr)
         result_set = result_set ? (result_set & Set.new(ids)) : Set.new(ids)
       end
-      result_set.map{|i|new(i)}
+      result_set.map{|i|build(i)}
     end
 
     # get all entries, sorted by the given field
@@ -367,7 +368,7 @@ module EasyRedis
     def self.match(field,str, options = {})
       raise EasyRedis::FieldNotTextSearchable, filename unless text_search? field
       ids = EasyRedis.redis.zrange(term_key(field,str), 0, -1, proc_options(options))
-      ids.map{|i| new(i)}
+      ids.map{|i| build(i)}
     end
 
     # indicates whether field has been indexed with sort_on
@@ -388,23 +389,27 @@ module EasyRedis
       EasyRedis.redis.del(prefix)
       EasyRedis.redis.del(prefix + ":next_id")
     end
-
+    
 
     # the id of this entry
     attr_reader :id
 
     # create a new instance of this model
     #
-    # If no id is passed, one is generated for you.
-    # Otherwise, sets the id field to the passed id, but does not check to see if it is a valid id for this model.
-    # Users should use find when retiving models by id, as these check for valid ids.
-    def initialize(id=nil)
+    # @param [String] id optional id to use for the entry
+    #   if you leave this parameter out an id will be generated for you
+    # @param [Boolean] check this flag is used for internal purposes.
+    #   LEAVE IT AS TRUE
+    def initialize(id=nil,check=true)
       if id
-        @id = id
+        @id = id.to_s
+        if check
+          raise "id #{id} is already in use" if EasyRedis.redis.zscore(prefix,id)
+          EasyRedis.redis.zadd(prefix,Time.now.to_i,@id)
+        end
       else
-        @id = EasyRedis.redis.incr(prefix + ':next_id')
+        @id = EasyRedis.redis.incr(prefix + ':next_id').to_s
         EasyRedis.redis.zadd(prefix,Time.now.to_i,@id)
-        @id
       end
     end
 
@@ -439,7 +444,7 @@ module EasyRedis
 
     # returns the key name of this entry's redis hash  
     def key_name
-      prefix + ':' + @id.to_s
+      "#{prefix}:#{@id}"
     end
 
     def inspect
@@ -455,6 +460,10 @@ module EasyRedis
 
 
     private 
+
+    def self.build(id)
+      new(id,false)
+    end
 
     # generate a temporary key name associated with this model
     def self.get_temp_key
