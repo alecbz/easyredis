@@ -1,0 +1,91 @@
+body {
+  background: #ccc;
+  color: #000305;
+}
+
+a:link, a:visited {
+  color: #666;
+}
+
+a:hover, a:active {
+  color: #c74530;
+}
+
+.body {
+  clear: both;
+  margin: 0 auto;
+  width:800px;
+}
+
+#header {
+  margin: 0 auto;
+  padding: 0.5em 0 0 0;
+}
+
+#header h1 {
+  font-size: 4em;
+  line-height: .8;
+  width: 300px;
+}
+
+#header h1 a:link, #header h1 a:visited {
+  color: #000305;
+  display: block;
+  font-weight: bold;
+  margin: 0 0 .6em .2em;
+  text-decoration: none;
+}
+
+#header h1 a:hover, #banner h1 a:active {
+  color: #c74530;
+}
+
+#header h1 small {
+  font-size: 0.36em;
+  font-weight: normal;
+  position: relative;
+  top: 0.5em;
+}
+
+#nav {
+  position: relative;
+  font-size: 1.1em;
+}
+
+#nav a {
+  text-decoration: none;
+}
+
+#nav ul {
+  position: absolute;
+  top: -6.4em;
+  left: 19em;
+}
+
+#nav li {
+  margin: 0px;
+  float: left;
+  margin-right: 20px;
+}
+
+#nav a:link, #nav a:visited {
+  font-size: 1.253em;
+  color: #000305;
+  display: block;
+  font-weight: bold;
+  margin: 0 0 .6em .2em;
+  text-decoration: none;
+}
+
+#nav a:hover, #nav a:active {
+  color: #c74530;
+}
+
+#main {
+  font-size: 1.5em;
+}
+
+#main pre {
+  margin-left: 40px;
+  color: #333;
+}
