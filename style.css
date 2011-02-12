@@ -1,5 +1,6 @@
 body {
   background: #e0e0e0;
+  background: #e0e0f8;
   color: #000305;
   font-family: 'Radley', serif;
 }
@@ -31,9 +32,11 @@ h2 {
   font-size: 4em;
   line-height: .8;
   width: 300px;
+  color: #c74530;
+  color: #c00;
 }
 
-#header h1 a:link, #header h1 a:visited {
+/*#header h1 a:link, #header h1 a:visited {
   color: #000305;
   display: block;
   font-weight: bold;
@@ -43,7 +46,7 @@ h2 {
 
 #header h1 a:hover, #banner h1 a:active {
   color: #c74530;
-}
+}*/
 
 #header h1 small {
   font-size: 0.36em;
@@ -84,6 +87,7 @@ h2 {
 
 #nav a:hover, #nav a:active {
   color: #c74530;
+  color: #c00;
 }
 
 #main {
