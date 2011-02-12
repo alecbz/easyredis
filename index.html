@@ -1,0 +1,34 @@
+<html>
+  <head>
+    <title>EasyRedis</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <div id="header" class="body">
+      <h1><a href=".">EasyRedis<br /><small>simple redis data storage</small></a></h1>
+      <div id="nav">
+        <ul>
+          <li><a href=".">HOME</a></li>
+          <li><a href="readme.html">README</a></li>
+          <li><a href="http://rubydoc.info/gems/easyredis/0.0.5/frames">DOCS</a></li>
+          <li><a href="https://github.com/alecbenzer/easyredis">SOURCE</a></li>
+        </ul>
+      </div>
+    </div>
+    <div id="main" class="body">
+      <p>EasyRedis is a simple ruby framework designed to make using Redis as a database simpler.</p>
+      <p><a href="redis.io">Redis</a> is a very fast key-value store that supports data structures like lists, sets, and hashes, but because of its simplicity, using Redis to store traditional database data can be somewhat tedious. EasyRedis streamlines this process.</p>
+      <pre><code>
+class Post &lt; EasyRedis::Model
+  field :title
+  field :body
+end
+...
+p = Post.new
+p.title = "First Post!"
+p.body = "This is my first post."
+      </code></pre>
+    </div>
+  </body>
+</html>
+
