@@ -81,6 +81,17 @@ module EasyRedis
     end
   end
 
+  # exception that indicates that the given field has not been indexed for sorting/searching
+  class FieldNotSearchable < RuntimeError
+    def initialize(field)
+      @message = "field '#{field.to_s}' not searchable"
+    end
+    
+    def to_s
+      @message
+    end
+  end
+
   # exception that indicates that the given field has not been indexed for text-searching
   class FieldNotTextSearchable < RuntimeError
     def initialize(field)
@@ -106,6 +117,10 @@ module EasyRedis
   # class representing a generic collection
   class Collection
     include Enumerable
+
+    def initialize(&p)
+      @access = p
+    end
 
     # access elements in this sort
     #
@@ -151,63 +166,71 @@ module EasyRedis
       end
     end
 
+    def inspect
+      "#<EasyRedis::Collection>"
+    end
+
     private
 
     # access the elements corresponding to the given range
     #
     # meant to be overridden in child classes
     def access(range)
-      []
-    end
-
-  end
-
-  # class representing a sort
-  class Sort < Collection
-
-    # initialize the sort with a specific field, ordering option, and model
-    #
-    # @param [Symbol] field a symbol corresponding to a field of klass
-    # @param [:asc, :desc] order a symbol specifying to sort in either ascending or descending order
-    # @param [Class] klass the klass whose entries we are accessing
-    def initialize(field,order,klass)
-      raise EasyRedis::FieldNotSortable, field  unless klass.sortable?(field) 
-      raise EasyRedis::UnknownOrderOption, order  unless [:asc,:desc].member? order
-      @field = field
-      @order = order
-      @klass = klass
-    end
-
-    # return the number of elements in this sort
-    #
-    # As of now, idential to the Model's count method.
-    # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them, which is much slower than a ZCARD command
-    def count
-      @count ||= EasyRedis.redis.zcard(@klass.sort_key(@field))
-      @count
-    end
-
-    def inspect
-      "#<EasyRedis::Sort model=#{@klass.name}, field=#{@field.to_s}, order=#{@order.to_s}>"
-    end
-
-    private
-
-    # takes a range and returns corresponding elements
-    def access(range)
-      a = range.begin
-      b = range.end
-      b -= 1 if range.exclude_end?
-      ids = []
-      if @order == :asc
-        ids = EasyRedis.redis.zrange(@klass.sort_key(@field),a,b)
-      elsif @order == :desc
-        ids = EasyRedis.redis.zrevrange(@klass.sort_key(@field),a,b)
+      if @access
+        @access[range]
+      else
+        []
       end
-      ids.map{|i|@klass.build(i)}
     end
 
   end
+
+#  # class representing a sort
+#  class Sort < Collection
+#
+#    # initialize the sort with a specific field, ordering option, and model
+#    #
+#    # @param [Symbol] field a symbol corresponding to a field of klass
+#    # @param [:asc, :desc] order a symbol specifying to sort in either ascending or descending order
+#    # @param [Class] klass the klass whose entries we are accessing
+#    def initialize(field,order,klass)
+#      raise EasyRedis::FieldNotSortable, field  unless klass.sortable?(field) 
+#      raise EasyRedis::UnknownOrderOption, order  unless [:asc,:desc].member? order
+#      @field = field
+#      @order = order
+#      @klass = klass
+#    end
+#
+#    # return the number of elements in this sort
+#    #
+#    # As of now, idential to the Model's count method.
+#    # This method is explicility defined here to overwrite the default one in Enumerable, which iterates through all the entries to count them, which is much slower than a ZCARD command
+#    def count
+#      @count ||= EasyRedis.redis.zcard(@klass.sort_key(@field))
+#      @count
+#    end
+#
+#    def inspect
+#      "#<EasyRedis::Sort model=#{@klass.name}, field=#{@field.to_s}, order=#{@order.to_s}>"
+#    end
+#
+#    private
+#
+#    # takes a range and returns corresponding elements
+#    def access(range)
+#      a = range.begin
+#      b = range.end
+#      b -= 1 if range.exclude_end?
+#      ids = []
+#      if @order == :asc
+#        ids = EasyRedis.redis.zrange(@klass.sort_key(@field),a,b)
+#      elsif @order == :desc
+#        ids = EasyRedis.redis.zrevrange(@klass.sort_key(@field),a,b)
+#      end
+#      ids.map{|i|@klass.build(i)}
+#    end
+#
+#  end
 
 
   # class representing a data model
@@ -215,6 +238,7 @@ module EasyRedis
   class Model
     
     @@sorts = []
+    @@searches = []
     @@text_searches = []
 
     # add a field to the model
@@ -245,6 +269,10 @@ module EasyRedis
           EasyRedis.redis.zadd(sort_key(name),EasyRedis.score(val),@id)
         end
 
+        if self.class.searchable? name
+          EasyRedis.redis.sadd(search_key(name,val),@id)
+        end
+
         if self.class.text_search? name.to_sym
           val.split.each do |term|
             EasyRedis.redis.zadd term_key(name,term), created_at.to_i, id
@@ -254,11 +282,18 @@ module EasyRedis
       end
     end
 
-    # index a field to be sorted/searched
+    # index a field to be sorted
     #
     # @param (see #field)
     def self.sort_on(field)
       @@sorts << field.to_sym
+    end
+
+    # index a field to be searched (with exact matches)
+    #
+    # @param (see #field)
+    def self.search_on(field)
+      @@searches << field.to_sym
     end
 
     # index a field for text searching
@@ -318,10 +353,10 @@ module EasyRedis
     # @param [Symbol] field a symbol representing the field to search on
     # @param val the value of field to search for
     def self.search_by(field, val, options = {})
-      raise EasyRedis::FieldNotSortable, field unless @@sorts.member? field.to_sym
-      scr = EasyRedis.score(val)
+      # scr = EasyRedis.score(val)
       # options[:limit] = [0,options[:limit]] if options[:limit]
-      ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr,proc_options(options))
+      # ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr,proc_options(options))
+      ids = EasyRedis.redis.smembers(search_key(field,val))
       ids.map{|i| build(i) }
     end
 
@@ -329,33 +364,53 @@ module EasyRedis
     #
     # @param (see #search_by)
     def self.find_by(field,val)
-      search_by(field,val,:limit => 1).first
+      i = EasyRedis.redis.srandmember(search_key(field,val))
+      build(i) if i
     end
 
     # search the model based on multiple parameters
     #
     # @param [Hash] params a hash of field => value pairs
     def self.search(params)
-      return search_by(*params.first) if params.size == 1  # comment out for benchmarking purposes
-      result_set = nil
-      params.each do |field,value|
-        scr = EasyRedis.score(value)
-        ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr)
-        result_set = result_set ? (result_set & Set.new(ids)) : Set.new(ids)
+      return search_by(*params.first) if params.size == 1
+      if params.all? {|f,v| searchable? f }
+        ids = EasyRedis.redis.sinter(*params.map{|k,v|search_key(k,v)})
+        ids.map{|i|build(i)}
+      elsif params.all? {|f,v| sortable? f}
+        result_set = nil
+        params.each do |field,value|
+          scr = EasyRedis.score(value)
+          ids = EasyRedis.redis.zrangebyscore(sort_key(field),scr,scr)
+          result_set = result_set ? (result_set & Set.new(ids)) : Set.new(ids)
+        end
+        result_set.map{|i|build(i)}
+      else
+        raise "fields must all be searchable or all be sortable"
       end
-      result_set.map{|i|build(i)}
     end
 
     # get all entries, sorted by the given field
     def self.sort_by(field,options = {:order => :asc})
-      EasyRedis::Sort.new(field,options[:order],self)
+      #EasyRedis::Sort.new(field,options[:order],self)
+      EasyRedis::Collection.new do |range|
+        a = range.begin
+        b = range.end
+        b -= 1 if range.exclude_end?
+        ids = []
+        if options[:order] == :asc
+          ids = EasyRedis.redis.zrange(sort_key(field),a,b)
+        elsif options[:order] == :desc
+          ids = EasyRedis.redis.zrevrange(sort_key(field),a,b)
+        end
+        ids.map{|i| build(i)}
+      end
     end
 
     # gives all values for the given field that begin with str
     #
     # @param [Symbol] field a symbol representing a field indexed with text_search.
     def self.matches(field,str)
-      raise FieldNotTextSearchable, field unless self.text_search? field
+      raise EasyRedis::FieldNotTextSearchable, field unless self.text_search? field
       scr = EasyRedis.score(str)
       a,b = scr, scr+1/(27.0**str.size)
       EasyRedis.redis.zrangebyscore(terms_key(field), "#{a}", "(#{b}")
@@ -376,6 +431,11 @@ module EasyRedis
       @@sorts and (@@sorts.member? field or field.to_sym == :created_at)
     end
 
+    # indicates whether field has been indexed with sort_on
+    def self.searchable?(field)
+      @@searches and @@searches.member? field.to_sym
+    end
+
     # indicates whether field has been indexed with text_search
     def self.text_search?(field)
       @@text_searches and @@text_searches.member?(field)
@@ -389,7 +449,7 @@ module EasyRedis
       EasyRedis.redis.del(prefix)
       EasyRedis.redis.del(prefix + ":next_id")
     end
-    
+
 
     # the id of this entry
     attr_reader :id
@@ -489,6 +549,10 @@ module EasyRedis
       end
     end
 
+    def self.search_key(field,value)
+      "#{prefix}:search_#{field}:#{value}"
+    end
+
     def self.terms_key(field)
       "#{prefix}:terms_#{field.to_s}"
     end
@@ -503,6 +567,10 @@ module EasyRedis
 
     def sort_key(field)
       self.class.sort_key(field)
+    end
+
+    def search_key(field,val)
+      self.class.search_key(field,val)
     end
 
     def terms_key(field)

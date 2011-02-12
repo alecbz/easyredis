@@ -13,7 +13,7 @@ end
 
 
 require 'benchmark'
-require './tests/test'
+require './tests/man'
 
 def rand_name(length=2)
   chars = []

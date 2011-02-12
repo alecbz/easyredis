@@ -53,7 +53,7 @@ Or, we can choose our own ids:
 
     p = Post.new("coolpost")
     p.title = "A Cool Post"
-    p.body = "This post has a high level of coolnes."
+    p.body = "This post has a high level of coolness."
 
     p2 = Post.find("coolpost")  # this is a very fast lookup
     p2.title  # => "A Cool Post"
