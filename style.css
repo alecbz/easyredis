@@ -1,8 +1,17 @@
 body {
-  background: #e0e0e0;
-  background: #e0e0f8;
+  background: #c22;
+}
+
+#page-container {
+  background: #d0d0ff;
   color: #000305;
   font-family: 'Radley', serif;
+  width: 800px;
+  margin: 0 auto;
+  padding: 10px 50px 50px 50px;
+  clear: both;
+  -moz-border-radius: 30px;
+  border-radius: 30px;
 }
 
 a:link, a:visited {
@@ -17,11 +26,11 @@ h2 {
   font-size: 1.3em;
 }
 
-.body {
+/*.body {
   clear: both;
   margin: 0 auto;
   width:800px;
-}
+}*/
 
 #header {
   margin: 0 auto;
