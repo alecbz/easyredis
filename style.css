@@ -11,6 +11,10 @@ a:hover, a:active {
   color: #c74530;
 }
 
+h2 {
+  font-size: 1.3em;
+}
+
 .body {
   clear: both;
   margin: 0 auto;
