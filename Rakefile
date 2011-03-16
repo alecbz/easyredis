@@ -4,7 +4,7 @@ require 'echoe'
 
 Echoe.new('easyredis','0.0.5') do |p|
   p.description = "framework designed to make using redis as a database simpler"
-  p.url = "https://github.com/alecbenzer/easyredis"
+  p.url = "http://alecbenzer.github.com/easyredis/"
   p.author = "Alec Benzer"
   p.email = "alecbezer @nospam@ gmail.com"
   p.ignore_pattern = ["*.rdb"]
