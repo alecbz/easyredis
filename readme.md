@@ -11,9 +11,7 @@ Or, you can get the source with git:
 
     $ git clone git://github.com/alecbenzer/easyredis.git
 
-or just download and extract a tar archive with the Downloads button.
-
-Once you have the source, you can run:
+and run:
 
     $ rake manifest
     $ rake build_gemspec
@@ -50,17 +48,15 @@ Or, we can choose our own ids:
 
     p = Post.new("coolpost")
     p.title = "A Cool Post"
-    p.body = "This post has a high level of coolnes."
+    p.body = "This post has a high level of coolness."
 
-    p2 = Post.find("coolpost")  # this is a very fast lookup
-    p2.title  # => "A Cool Post"
+    p2 = Post.find("coolpost")  # very fast lookup
 
 We also get a created_at field for free that we can sort by.
 
-    p.created_at  # a ruby Time object
-    Post.all  # get all posts, ordered by creation time
-    Post.all :order => :desc  # specifying an order option
-    Post[41]  # the 42nd (0-based indexing) post that was created
+    p.created_at              # a ruby Time object
+    Post.all :order => :desc  # all posts ordered by descending time
+    Post[n]                   # the nth post that was created
     
 ## Searching and Sorting
 
