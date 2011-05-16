@@ -1,6 +1,7 @@
 ---
 layout: default
 ---
+
 ## Installation
 
 You can just grab the gem and you're good to go:
@@ -50,13 +51,14 @@ Or, we can choose our own ids:
     p.title = "A Cool Post"
     p.body = "This post has a high level of coolness."
 
-    p2 = Post.find("coolpost")  # very fast lookup
+    p2 = Post.find("coolpost")  # this is a very fast lookup
+    p2.title  # => "A Cool Post"
 
 We also get a created_at field for free that we can sort by.
 
     p.created_at              # a ruby Time object
     Post.all :order => :desc  # all posts ordered by descending time
-    Post[n]                   # the nth post that was created
+    Post[n]                   # the nth (0-based indexing) post that was created
     
 ## Searching and Sorting
 
@@ -78,18 +80,18 @@ And also search:
     Post.search_by :title, "A common title"  # all posts with this title
     Post.find_by :title, "My First Post"  # just one post
 
-## Text Search and Completions
+## Implicit References
 
-We could have defined Post like this:
+You may have noticed fields have not been given any types. EasyRedis automatically tracks the type of a field based on the type of data you assign it.
 
-    class Post < EasyRedis::Model
-      field :title
-      field :body
+This works for references, too:
 
-      text_search :title
+    class Comment < EasyRedis::Model
+      field :text
+      field :post
     end
-
-Now we can perform text searches and completions against our title field:
-
-    Post.matches(:title,"Fir")  # titles that begin with "Fir"
-    Post.match(:title,"First")  # posts whose titles contain "First"
+    
+    c = Comment.new
+    c.text = "A comment!"
+    
+    c.post = Post[0]
